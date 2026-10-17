@@ -3,8 +3,9 @@
 # Deploying stays manual (./deploy/update.sh on the container): the LXC has no
 # inbound ports, so GitHub cannot reach it, and that is the point.
 #
-# The agent binary is attached to each run as the `partyfax-agent` artifact:
-# download it from the run's page and scp it to the Pi (pi/README.md).
+# The agent binary is attached to each run as the `partyfax-agent` artifact,
+# and every push to main also replaces it on the `agent-latest` release, where
+# pi/install.sh downloads it without needing a GitHub login.
 name: ci
 
 on:
@@ -47,6 +48,9 @@ jobs:
 
   pi:
     runs-on: ubuntu-latest
+    # Write, for the agent-latest release.
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: pi
@@ -65,9 +69,21 @@ jobs:
           cache-dependency-path: pi/go.sum
       - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
-      - run: go build -trimpath -ldflags='-s -w' -o partyfax-agent .
+      - run: go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_SHA::7}" -o partyfax-agent .
       - uses: actions/upload-artifact@v4
         with:
           name: partyfax-agent
           path: pi/partyfax-agent
           retention-days: 30
+
+      # A rolling pre-release, its binary overwritten by every push to main.
+      - name: Publish to the agent-latest release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view agent-latest >/dev/null 2>&1 ||
+            gh release create agent-latest --prerelease --target "$GITHUB_SHA" \
+              --title "Pi agent (latest main)" \
+              --notes "Built from main by ci.yml and replaced on every push. Installed by pi/install.sh."
+          gh release upload agent-latest partyfax-agent --clobber

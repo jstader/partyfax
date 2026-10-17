@@ -47,6 +47,9 @@ var (
 
 var logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 
+// version is the commit the binary was built from, set by ci.yml with -X.
+var version = "dev"
+
 type config struct {
 	url, user, pass, device, printer string
 }
@@ -96,7 +99,7 @@ func run(ctx context.Context, cfg config) {
 	// Logged first, so a device id that disagrees with the server's is
 	// visible even when the connection never comes up. Drift and jobs vanish
 	// with no error anywhere.
-	logger.Info("starting", "broker", cfg.url, "subscribe", jobTopic, "printer", cfg.printer)
+	logger.Info("starting", "version", version, "broker", cfg.url, "subscribe", jobTopic, "printer", cfg.printer)
 
 	// Small: the dispatcher sends one job and waits for its ack, so more
 	// than one waiting means a redelivery, not a queue.
