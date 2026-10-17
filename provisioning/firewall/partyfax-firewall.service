@@ -1,0 +1,13 @@
+[Unit]
+Description=Apply partyfax host firewall rules (INPUT + DOCKER-USER)
+After=docker.service crowdsec-firewall-bouncer.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/partyfax-apply-firewall.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

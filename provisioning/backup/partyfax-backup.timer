@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly partyfax backup to the NAS
+
+[Timer]
+# UTC in the container. 09:00 UTC is 02:00 Pacific, clear of the host's
+# 03:15-03:35 Pacific vzdump window.
+OnCalendar=*-*-* 09:00:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

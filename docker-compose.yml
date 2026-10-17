@@ -1,12 +1,13 @@
-# One door: Caddy on 80/443, routing / to the site, /api/* to the gateway and
-# /mqtt to the broker. Nothing else publishes a port, so /internal/* is safe.
+# One door, and it opens outwards: cloudflared dials Cloudflare and carries
+# requests back to Caddy, which routes / to the site, /api/* to the gateway
+# and /mqtt to the broker. Nothing publishes a port, so nothing on the LAN or
+# the internet can reach any of this except through the tunnel, and
+# /internal/* stays inside the compose network.
 
 name: fax
 
-# The Go services and Caddy are pulled from the registry, where GitHub Actions
-# put them (see .github/workflows/images.yml). FAX_TAG pins a commit; unset is
-# latest. `build:` stays for development: `docker compose up --build` compiles
-# here instead. The VPS never passes --build.
+# Built on the box that runs it (deploy/update.sh), not pulled: the images are
+# small Go builds, and building here means no registry login to keep.
 
 # json-file never rotates by default, and a full disk takes Caddy down with
 # everything else. 30 MB per service is months of history here.
@@ -14,36 +15,66 @@ x-logging: &logging
   driver: json-file
   options: { max-size: "10m", max-file: "3" }
 
+# Nothing here needs a capability unless it says so below.
+x-hardening: &hardening
+  restart: unless-stopped
+  logging: *logging
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
 services:
+  cloudflared:
+    <<: *hardening
+    # Pinned: an unpinned tunnel client can change under a restart.
+    image: cloudflare/cloudflared:2025.9.1
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
+    environment:
+      # From Zero Trust > Networks > Tunnels. Left empty, cloudflared
+      # restart-loops without blocking the rest of the stack.
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:-}"
+    read_only: true
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks: [edge]
+    depends_on: [caddy]
+
   caddy:
+    <<: *hardening
     # Stock Caddy plus the rate_limit plugin; see deploy/caddy/Dockerfile.
-    image: ghcr.io/michal-pielka/fax-caddy:${FAX_TAG:-latest}
+    image: partyfax/caddy:local
     build:
       context: ./deploy/caddy
-    restart: unless-stopped
-    logging: *logging
-    ports:
-      # The only ports open to the internet. 80 exists so Caddy can answer
-      # the ACME challenge and redirect; everything real is on 443.
-      - "80:80"
-      - "443:443"
+    # Port 80 inside the container, reached only by cloudflared.
+    cap_add: [NET_BIND_SERVICE]
+    mem_limit: 128m
     environment:
-      SITE_ADDRESS: "fax.pielka.sh"
       FAX_BANNED: "${FAX_BANNED:-}"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./frontend:/srv/web:ro
       - caddy-data:/data
+    # Through Caddy to the gateway: the gateway's image is scratch and has
+    # nothing to run a check with, so this covers both.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [edge, app]
     depends_on: [gateway]
 
   gateway:
-    # Pulled from the registry; see the note at the top.
-    image: ghcr.io/michal-pielka/fax-gateway:${FAX_TAG:-latest}
+    <<: *hardening
+    image: partyfax/gateway:local
     build:
       context: ./backend
       dockerfile: cmd/gateway/Dockerfile
-    restart: unless-stopped
-    logging: *logging
+    mem_limit: 128m
     command:
       - "-addr=:8080"
       - "-renderer=http://renderer:8081"
@@ -54,29 +85,31 @@ services:
     # Not rotated: a square photo is under 20 KB, so a full volume is months
     # of strangers away, and it is the only record of what came out.
     # The wall at /prints: every print, one JSON line each, and the ids
-    # taken down with deploy/hide.sh.
+    # taken down with deploy/hide.sh. Both are in the nightly backup.
     volumes:
       - photos:/var/lib/fax/photos
       - wall:/var/lib/fax/wall
+    networks: [app]
     depends_on: [renderer, dispatcher]
 
   renderer:
-    # Pulled from the registry; see the note at the top.
-    image: ghcr.io/michal-pielka/fax-renderer:${FAX_TAG:-latest}
+    <<: *hardening
+    image: partyfax/renderer:local
     build:
       context: ./backend
       dockerfile: cmd/renderer/Dockerfile
-    restart: unless-stopped
-    logging: *logging
+    mem_limit: 128m
+    read_only: true
+    networks: [app]
 
   dispatcher:
-    # Pulled from the registry; see the note at the top.
-    image: ghcr.io/michal-pielka/fax-dispatcher:${FAX_TAG:-latest}
+    <<: *hardening
+    image: partyfax/dispatcher:local
     build:
       context: ./backend
       dockerfile: cmd/dispatcher/Dockerfile
-    restart: unless-stopped
-    logging: *logging
+    mem_limit: 128m
+    read_only: true
     command:
       - "-addr=:8082"
       - "-broker=tcp://mosquitto:1883"
@@ -84,14 +117,23 @@ services:
       - "-device=${DEVICE_ID:-printer-1}"
     environment:
       MQTT_PASSWORD: "${MQTT_PASSWORD:?set MQTT_PASSWORD in .env}"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8082/internal/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     # depends_on orders starts, not readiness. The restart policy is what
     # covers the second before mosquitto is listening.
+    networks: [app]
     depends_on: [mosquitto]
 
   mosquitto:
+    <<: *hardening
     image: eclipse-mosquitto:2
-    restart: unless-stopped
-    logging: *logging
+    # The entrypoint chowns /mosquitto as root, then the broker drops to its
+    # own user.
+    cap_add: [CHOWN, SETUID, SETGID]
+    mem_limit: 64m
     # No published ports: 1883 for the dispatcher and 9001 for Caddy are
     # reachable only from inside this network.
     volumes:
@@ -99,6 +141,17 @@ services:
       - ./deploy/mosquitto/acl:/mosquitto/config/acl:ro
       - ./deploy/mosquitto/passwd:/mosquitto/config/passwd:ro
       - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "1883"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [app]
+
+# cloudflared sits on edge only: it reaches Caddy and nothing behind it.
+networks:
+  edge:
+  app:
 
 volumes:
   caddy-data:

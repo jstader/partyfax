@@ -9,7 +9,7 @@ import { rowRanges } from './paper.js';
 /* The frame, as in index.html and backend/internal/render. */
 const TITLE = 'FAX';
 const HEAD = 'THE SLOWEST SOCIAL NETWORK';
-const FOOT = ['COMMITTED TO PHYSICAL MEDIA', '*** fax.pielka.sh ***'];
+const FOOT = ['COMMITTED TO PHYSICAL MEDIA', '*** partyfax.nilanet.live ***'];
 
 /* A photo's width in printer dots; its height is in the same unit. */
 const DOTS = 384;

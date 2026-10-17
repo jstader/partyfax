@@ -1,0 +1,7 @@
+# Feeds the crowdsecurity/linux collection (general host-level scenarios).
+filenames:
+  - /var/log/syslog
+  - /var/log/kern.log
+labels:
+  type: syslog
+source: file

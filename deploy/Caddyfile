@@ -2,9 +2,25 @@
 	# rate_limit is a plugin (deploy/caddy/Dockerfile), so Caddy has no
 	# built-in place for it among the other handlers.
 	order rate_limit before basic_auth
+
+	# TLS ends at Cloudflare; cloudflared hands requests in as plain HTTP
+	# over the compose network. Nothing publishes a port, so there is no
+	# certificate to get and nothing to redirect.
+	auto_https off
+
+	servers {
+		# Every connection comes from cloudflared, so the peer address is
+		# always the same container. The visitor is in Cf-Connecting-IP,
+		# trusted only from a private address: anything else reaching
+		# Caddy could set the header to whatever it liked.
+		trusted_proxies static private_ranges
+		client_ip_headers Cf-Connecting-IP
+	}
 }
 
-fax.pielka.sh {
+# Any Host: only cloudflared reaches this listener, and it sends only the
+# hostnames the tunnel is configured for.
+:80 {
 	encode gzip
 
 	# The edge sees what no service does: static files, the broker websocket,
@@ -16,7 +32,8 @@ fax.pielka.sh {
 
 	# FAX_BANNED from .env: space-separated IPs or CIDR ranges. Their
 	# connections are closed with no response. Empty bans nobody.
-	@banned remote_ip {$FAX_BANNED}
+	# client_ip, not remote_ip: the remote is always cloudflared.
+	@banned client_ip {$FAX_BANNED}
 	handle @banned {
 		abort
 	}
@@ -46,7 +63,12 @@ fax.pielka.sh {
 	}
 
 	handle /api/* {
-		reverse_proxy gateway:8080
+		# The gateway logs the last X-Forwarded-For entry as the caller,
+		# and Caddy would append cloudflared's address after the
+		# visitor's. One value, the trusted one, instead.
+		reverse_proxy gateway:8080 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 
 	handle {

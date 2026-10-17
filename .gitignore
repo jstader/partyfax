@@ -10,3 +10,6 @@ target/
 deploy/mosquitto/passwd
 
 docs/
+
+# The Pi agent binary, built by pi/build.sh
+pi/partyfax-agent

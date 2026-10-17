@@ -1,0 +1,6 @@
+# Feeds the crowdsecurity/sshd collection.
+filenames:
+  - /var/log/auth.log
+labels:
+  type: syslog
+source: file

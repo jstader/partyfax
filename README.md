@@ -97,23 +97,22 @@ deploy/     Caddy, Mosquitto, deploy and log scripts
 <summary><b>Run your own</b></summary>
 <br>
 
-> The domain is hardcoded. Replace `fax.pielka.sh` with yours in:
->
-> - `deploy/Caddyfile`: the site address; Caddy gets its certificate for it
-> - `docker-compose.yml`: `SITE_ADDRESS`
-> - `firmware/src/config.rs`: `MQTT_URL`, where the board connects
-> - `frontend/index.html` and `backend/internal/render/render.go`: the name
->   printed on the receipt
+> This fork runs at `partyfax.nilanet.live` behind a Cloudflare Tunnel, with
+> a Raspberry Pi Zero W (`pi/`) driving the printer. The domain is hardcoded
+> in `pi/main.go` (`PARTYFAX_MQTT_URL` default), `firmware/src/config.rs`,
+> the `frontend/` pages, and `backend/internal/render/render.go`.
 
 **Server** (Docker with Compose):
 
 ```sh
-cp .env.example .env    # set MQTT_PASSWORD
+cp .env.example .env    # passwords and the tunnel token
 # create the broker users `backend` and `printer`; see deploy/README.md
 docker compose up -d --build
 ```
 
-**Board** (needs the [esp-rs](https://github.com/esp-rs) toolchain):
+**Pi Zero W:** see [`pi/README.md`](pi/README.md).
+
+**Board** (ESP32-S3, needs the [esp-rs](https://github.com/esp-rs) toolchain):
 
 ```sh
 cd firmware

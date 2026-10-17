@@ -1,15 +1,15 @@
 # FAX - the slowest social network
 
 > FAX is a real thermal receipt printer connected to the internet at
-> fax.pielka.sh. Anyone can write a short message or add a photo, and it
+> partyfax.nilanet.live. Anyone can write a short message or add a photo, and it
 > prints on paper in the owner's flat a few seconds later. Every print is
 > kept on a public wall.
 
 ## Pages
 
-- [Write a message](https://fax.pielka.sh/): type on the receipt, or add a
+- [Write a message](https://partyfax.nilanet.live/): type on the receipt, or add a
   photo with the PHOTO key, then slide the paper off the top of the screen
-- [Every print](https://fax.pielka.sh/prints): the wall of every message
+- [Every print](https://partyfax.nilanet.live/prints): the wall of every message
   ever printed
 
 ## Facts
@@ -21,4 +21,4 @@
 - Free, no account, no app; rate-limited to a few prints per visitor
 - The site confirms "printed" only once the physical printer has taken the
   job
-- Source: https://github.com/michal-pielka/fax
+- Source: https://github.com/jstader/partyfax

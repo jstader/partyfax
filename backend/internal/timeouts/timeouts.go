@@ -11,8 +11,9 @@ package timeouts
 import "time"
 
 // Firmware is how long the firmware may take to ack a job: its JOB_DEADLINE
-// (firmware/src/config.rs), plus the two seconds cancelling a transfer caught
-// mid-flight can add. Change them together.
+// (firmware/src/config.rs, and jobDeadline in pi/main.go for the Pi agent),
+// plus the two seconds cancelling a transfer caught mid-flight can add.
+// Change them together.
 const Firmware = 20*time.Second + 2*time.Second
 
 // Ack is how long the dispatcher waits for the firmware's answer: longer than

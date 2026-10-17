@@ -44,7 +44,7 @@ var (
 	}
 	footer = []string{
 		"COMMITTED TO PHYSICAL MEDIA",
-		"*** fax.pielka.sh ***",
+		"*** partyfax.nilanet.live ***",
 	}
 )
 

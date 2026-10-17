@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Deploy what is on main. Nothing is compiled here: the images were built by
-# GitHub Actions when main was pushed, and this pulls them.
+# Deploy what is on main. The images are built here, on the container: they
+# are small Go builds and Caddy, and building locally means no registry
+# login to keep.
 #
-#   ./deploy/update.sh              newest of everything
-#   FAX_TAG=<sha> ./deploy/update.sh   a specific build, e.g. to roll back
+#   ./deploy/update.sh
 
 set -euo pipefail
 
@@ -16,7 +16,9 @@ before=$(git rev-parse HEAD)
 git pull --ff-only
 after=$(git rev-parse HEAD)
 
-docker compose pull --quiet
+# --pull refreshes the base images; unchanged layers come from the cache.
+docker compose build --pull
+docker compose pull --quiet --ignore-buildable
 docker compose up -d --remove-orphans
 
 # Neither of these reads its config while running. Compose does not restart a
@@ -35,5 +37,7 @@ if ! git diff --quiet "$before" "$after" -- deploy/Caddyfile; then
 	echo "Caddyfile changed; restarting caddy"
 	docker compose restart caddy
 fi
+
+docker image prune -f >/dev/null
 
 docker compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Image}}"

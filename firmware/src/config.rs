@@ -8,7 +8,7 @@ pub const WIFI_PASS: &str = env!("WIFI_PASS");
 
 /// Websockets, because Caddy cannot proxy plain MQTT and this keeps the
 /// certificate its problem. A hostname, so moving the VPS is not a reflash.
-pub const MQTT_URL: &str = "wss://fax.pielka.sh/mqtt";
+pub const MQTT_URL: &str = "wss://partyfax.nilanet.live/mqtt";
 pub const MQTT_PASS: &str = env!("MQTT_PASS");
 pub const MQTT_USER: &str = "printer";
 
