@@ -47,8 +47,7 @@ else
 		read -r -s -p "Paste PRINTER_MQTT_PASSWORD from the server's .env: " pass </dev/tty
 		echo
 	done
-	umask 027
-	printf 'PARTYFAX_MQTT_PASS=%s\n' "$pass" >"$ENV_FILE"
+	(umask 027 && printf 'PARTYFAX_MQTT_PASS=%s\n' "$pass" >"$ENV_FILE")
 	chown root:partyfax "$ENV_FILE"
 	chmod 0640 "$ENV_FILE"
 	echo "Saved to $ENV_FILE."
@@ -65,7 +64,8 @@ else
 fi
 
 say "Installing the service"
-curl -fsSL "$UNIT_URL" -o /etc/systemd/system/partyfax-agent.service
+curl -fsSL "$UNIT_URL" -o "$tmp"
+install -m 0644 "$tmp" /etc/systemd/system/partyfax-agent.service
 systemctl daemon-reload
 # Stopped for the test print: two processes cannot share the printer.
 systemctl stop partyfax-agent 2>/dev/null || true
