@@ -42,10 +42,10 @@ if ! git diff --quiet "$before" "$after" -- deploy/Caddyfile; then
 	docker compose restart caddy
 fi
 
-# Old images and build cache otherwise pile up -- gigabytes on an 8 GB disk,
-# and all of it in every nightly vzdump. Three days of cache keeps a quick
-# redeploy quick.
+# Build cache is about 2 GB, a quarter of the disk, and all of it would be
+# in every nightly vzdump. Deploys are rare, so the next one builds from
+# scratch instead (a few minutes).
 docker image prune -f >/dev/null
-docker builder prune -af --filter until=72h >/dev/null
+docker builder prune -af >/dev/null
 
 docker compose ps --format "table {{.Service}}\t{{.Status}}\t{{.Image}}"
