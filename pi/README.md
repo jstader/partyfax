@@ -10,15 +10,20 @@ through an OTG adapter or cable. Linux's `usblp` driver shows it as
 `/dev/usb/lp0`. That keeps the fast USB path the S3 firmware uses, with no
 9600 baud serial.
 
-## 1. Build
+## 1. Get the binary
 
-On any machine with Go or Docker:
+Every push to `main` builds it. Open the latest
+[ci run](https://github.com/jstader/partyfax/actions/workflows/ci.yml) and
+download the `partyfax-agent` artifact. It arrives as a zip, so unzip it and
+`chmod +x` the binary.
+
+To build it yourself instead, on any machine with Go or Docker:
 
 ```bash
 ./pi/build.sh
 ```
 
-That writes `pi/partyfax-agent`, a static ARMv6 binary.
+Either way you get `partyfax-agent`, a static ARMv6 binary.
 
 ## 2. Install on the Pi
 

@@ -6,6 +6,7 @@
 
 [![Print something](https://img.shields.io/badge/print_something-partyfax.nilanet.live-black?style=for-the-badge)](https://partyfax.nilanet.live)
 
+[![ci](https://github.com/jstader/partyfax/actions/workflows/ci.yml/badge.svg)](https://github.com/jstader/partyfax/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white)
 ![Raspberry Pi](https://img.shields.io/badge/Pi_Zero_W-A22846?logo=raspberrypi&logoColor=white)
 ![Proxmox](https://img.shields.io/badge/Proxmox_LXC-E57000?logo=proxmox&logoColor=white)
