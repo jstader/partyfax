@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/michal-pielka/fax/server/internal/httpx"
+	"github.com/jstader/partyfax/backend/internal/httpx"
 )
 
 // maxBody caps the request body. A text receipt is a few hundred bytes and a

@@ -16,7 +16,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags=
 
 FROM alpine:3.21
 # Needed the moment the broker URL becomes ssl://. Cheap to include now rather
-# than debugging an x509 error during the VPS move.
+# than debugging an x509 error later.
 RUN apk add --no-cache ca-certificates
 
 COPY --from=build /dispatcher /dispatcher

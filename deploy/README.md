@@ -108,17 +108,8 @@ photos, the broker's `passwd` and `.env`, encrypts them with the age key at
 `/root/.config/age/backup-key.txt`, and copies them to the `partyfax` share on the NAS at `CIFS_HOST` (`.env`).
 It keeps 14 days. Restore steps are at the top of `provisioning/backup/backup.sh`.
 
-## The firmware
+## The printer
 
-This deployment uses a Raspberry Pi Zero W running `pi/` instead; see
-`pi/README.md`. The Rust firmware still works on an ESP32-S3, which can host
-the printer over its USB port. Flashed through the board's COM port from a machine
-with the cable:
-
-```sh
-cd firmware
-WIFI_SSID=... WIFI_PASS=... MQTT_PASS=<printer password> cargo run --release
-```
-
-Flash and deploy together when a change touches both: the two ends share
-the MQTT message shapes and the timeouts.
+The Pi Zero W next to the printer runs `pi/`; see `pi/README.md`. Update it
+and the server together when a change touches both: the two ends share the
+MQTT message shapes and the timeouts.

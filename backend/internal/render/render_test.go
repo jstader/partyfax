@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/doc"
 )
 
 // cat joins byte sequences, so an expected receipt reads as the sequence of

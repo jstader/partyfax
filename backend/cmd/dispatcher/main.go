@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/michal-pielka/fax/server/internal/httpx"
-	"github.com/michal-pielka/fax/server/internal/logging"
-	"github.com/michal-pielka/fax/server/internal/timeouts"
+	"github.com/jstader/partyfax/backend/internal/httpx"
+	"github.com/jstader/partyfax/backend/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/timeouts"
 )
 
 const connectTimeout = 15 * time.Second

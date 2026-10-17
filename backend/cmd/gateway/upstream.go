@@ -8,8 +8,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
-	"github.com/michal-pielka/fax/server/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/logging"
 )
 
 // Renderer and Dispatcher are interfaces so the handlers can be tested without

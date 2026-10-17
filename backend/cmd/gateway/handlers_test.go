@@ -16,9 +16,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
-	"github.com/michal-pielka/fax/server/internal/httpx"
-	"github.com/michal-pielka/fax/server/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/httpx"
+	"github.com/jstader/partyfax/backend/internal/logging"
 )
 
 type fakeRenderer struct {

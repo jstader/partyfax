@@ -1,7 +1,7 @@
 # Two accounts, each able to do only its half of the exchange.
 #
-# The ESP32's credentials are compiled into firmware sitting in a flat, so
-# assume they can be extracted. With this split, whoever has them can watch
+# The printer's credentials sit on a Pi next to the printer, so assume they
+# can be extracted. With this split, whoever has them can watch
 # state and receive jobs, but cannot publish a job -- so they cannot make the
 # printer print. A single shared account would let them.
 

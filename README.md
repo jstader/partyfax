@@ -100,7 +100,6 @@ backend/        gateway, renderer and dispatcher (Go)
 pi/             the printer agent for the Pi Zero W (Go)
 deploy/         Caddy, Mosquitto, deploy and log scripts
 provisioning/   LXC host setup: SSH, CrowdSec, firewall, encrypted NAS backups
-firmware/       upstream's ESP32-S3 firmware (Rust); not used here
 ```
 
 ## Running it
@@ -121,7 +120,7 @@ cd frontend && npm test
 ## Credits
 
 Forked from [michal-pielka/fax](https://github.com/michal-pielka/fax), which
-built the site, backend and ESP32 firmware. This fork moves it onto a Proxmox
+built the site, the backend and the original ESP32 firmware. This fork moves it onto a Proxmox
 LXC behind a Cloudflare Tunnel and swaps the ESP32-S3 for a Raspberry Pi
 Zero W.
 

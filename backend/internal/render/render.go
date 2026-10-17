@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"strings"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/doc"
 )
 
 var (

@@ -1,6 +1,6 @@
 // Command partyfax-agent is the printer end of fax, for a Raspberry Pi Zero W
-// with the thermal printer on its USB OTG port. It does what the ESP32-S3
-// firmware in firmware/ does, as a Linux process: subscribe to the device's
+// with the thermal printer on its USB OTG port. It replaces upstream's ESP32-S3
+// firmware, as a Linux process: subscribe to the device's
 // job topic over MQTT-over-websockets, check for paper, write the ESC/POS the
 // server rendered to the printer, and ack. The server needs no change to talk
 // to it; the topics, payloads and acks are the firmware's.
@@ -23,7 +23,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-// Mirrors firmware/src/config.rs. backend/internal/timeouts waits for
+// Kept from the original firmware. backend/internal/timeouts waits for
 // jobDeadline plus a margin, so a printer that gives up says why before the
 // dispatcher stops listening. Change them together.
 const (

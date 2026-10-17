@@ -1,4 +1,4 @@
-module github.com/michal-pielka/fax/server
+module github.com/jstader/partyfax/backend
 
 go 1.26.5
 

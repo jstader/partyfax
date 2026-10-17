@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/doc"
 )
 
 func newAPI() *api {

@@ -14,8 +14,8 @@
 
 ## Facts
 
-- A thermal receipt printer (58 mm paper, 384 dots wide) driven by an
-  ESP32-S3, reachable from a public website
+- A thermal receipt printer (58 mm paper, 384 dots wide) driven by a
+  Raspberry Pi Zero W, reachable from a public website
 - Messages: up to 9 lines of 32 characters; bold, underline, white-on-black
 - Photos: dithered to 1-bit in the browser before printing
 - Free, no account, no app; rate-limited to a few prints per visitor

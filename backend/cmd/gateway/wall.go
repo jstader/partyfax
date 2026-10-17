@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/doc"
 )
 
 // The wall's files. Both are append-only, one record per line, so a crash

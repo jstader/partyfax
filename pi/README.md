@@ -133,12 +133,12 @@ sudo systemctl start partyfax-agent
 
 ## How it works
 
-`partyfax-agent` (this directory, Go) does the job of the ESP32-S3 firmware
-in `firmware/`: it dials `wss://partyfax.nilanet.live/mqtt`, subscribes to
+`partyfax-agent` (this directory, Go) does the job of upstream's ESP32-S3
+firmware: it dials `wss://partyfax.nilanet.live/mqtt`, subscribes to
 `fax/printer-1/job/+`, checks for paper with `DLE EOT 4`, writes the
 server's ESC/POS to `/dev/usb/lp0`, and acks. The server can't tell the two
-apart. The timeouts match the firmware's (10 s for the printer to appear,
-20 s per job), and `backend/internal/timeouts` depends on them.
+apart. The timeouts (10 s for the printer to appear,
+20 s per job) are what `backend/internal/timeouts` expects.
 
 Settings live in `/etc/partyfax/agent.env`. Only the password is required;
 see `agent.env.example` for the rest. To build the binary yourself instead

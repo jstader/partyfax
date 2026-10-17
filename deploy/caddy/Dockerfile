@@ -1,7 +1,5 @@
 # Caddy with the rate_limit handler, which stock Caddy does not ship.
-# Built by the images workflow like the Go services; the VPS only pulls it.
-#
-#   docker build -t fax-caddy deploy/caddy
+# Built on the container by deploy/update.sh, like the Go services.
 #
 # The plugin is pinned to a commit: its only release tag is years behind.
 FROM caddy:2-builder AS build

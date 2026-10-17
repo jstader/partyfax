@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"unicode/utf8"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
-	"github.com/michal-pielka/fax/server/internal/httpx"
-	"github.com/michal-pielka/fax/server/internal/render"
+	"github.com/jstader/partyfax/backend/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/httpx"
+	"github.com/jstader/partyfax/backend/internal/render"
 )
 
 // maxBody caps the body before anything reads it. Validate stops a large

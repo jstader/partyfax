@@ -12,8 +12,8 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
-	"github.com/michal-pielka/fax/server/internal/logging"
-	"github.com/michal-pielka/fax/server/internal/timeouts"
+	"github.com/jstader/partyfax/backend/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/timeouts"
 )
 
 // Errors the printer itself is responsible for, as opposed to the dispatcher

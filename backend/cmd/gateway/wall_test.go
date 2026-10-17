@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/michal-pielka/fax/server/internal/doc"
-	"github.com/michal-pielka/fax/server/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/logging"
 )
 
 func textPrint(id string, at int) Print {
