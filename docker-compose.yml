@@ -26,7 +26,7 @@ services:
   cloudflared:
     <<: *hardening
     # Pinned: an unpinned tunnel client can change under a restart.
-    image: cloudflare/cloudflared:2025.9.1
+    image: cloudflare/cloudflared:2026.10.1
     command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 run
     environment:
       # From Zero Trust > Networks > Tunnels. Left empty, cloudflared
