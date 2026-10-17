@@ -15,8 +15,8 @@
 #   cloudflared, Caddy and Mosquitto all face the internet, and without this
 #   a foothold in any of them could reach every service on the LAN -- the
 #   Proxmox UI, the NAS, the router. It also stops a tunnel pointed at a LAN
-#   address from the Cloudflare side. DNS keeps working: Docker's resolver
-#   asks the upstream from the host's own stack, not the container's.
+#   address from the Cloudflare side. That includes the router's DNS, so
+#   Docker is pointed at public resolvers instead (docker/daemon.json).
 #
 #   This is only the container-level wall. Root on this LXC could remove it,
 #   so the same egress block belongs on the Proxmox firewall for the CT too.

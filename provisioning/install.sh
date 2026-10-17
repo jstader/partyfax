@@ -39,6 +39,16 @@ else
   echo "Docker already installed, skipping."
 fi
 
+echo "== Docker DNS =="
+# Public resolvers, not the router. firewall/apply-rules.sh blocks every
+# container from the LAN, and build steps (unlike the app's own networks)
+# ask the configured DNS server directly from inside the container: pointed
+# at the router, every `apk add` in a Dockerfile fails.
+if ! cmp -s "$SCRIPT_DIR/docker/daemon.json" /etc/docker/daemon.json; then
+  install -m 0644 "$SCRIPT_DIR/docker/daemon.json" /etc/docker/daemon.json
+  systemctl restart docker
+fi
+
 echo "== SSH hardening =="
 # Refuse to disable password auth with no key to log in with: that would
 # leave only the Proxmox console.
