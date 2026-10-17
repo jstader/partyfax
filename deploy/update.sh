@@ -16,6 +16,10 @@ before=$(git rev-parse HEAD)
 git pull --ff-only
 after=$(git rev-parse HEAD)
 
+# Default build attestations carry a timestamp, so every build would be a new
+# image even with nothing changed, and every deploy would restart everything.
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+
 # --pull refreshes the base images; unchanged layers come from the cache.
 docker compose build --pull
 docker compose pull --quiet --ignore-buildable
