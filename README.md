@@ -1,37 +1,31 @@
 <div align="center">
 
-# 📠 fax
+# 📠 partyfax
 
-**A receipt printer in my flat that anyone on the internet can print to.**
+**A receipt printer at my place that anyone on the internet can print to.**
 
-[![Print something](https://img.shields.io/badge/print_something-fax.pielka.sh-black?style=for-the-badge)](https://fax.pielka.sh)
+[![Print something](https://img.shields.io/badge/print_something-partyfax.nilanet.live-black?style=for-the-badge)](https://partyfax.nilanet.live)
 
-[![images](https://github.com/michal-pielka/fax/actions/workflows/images.yml/badge.svg)](https://github.com/michal-pielka/fax/actions/workflows/images.yml)
-[![firmware](https://github.com/michal-pielka/fax/actions/workflows/firmware.yml/badge.svg)](https://github.com/michal-pielka/fax/actions/workflows/firmware.yml)
 ![Go](https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white)
-![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)
-![ESP32-S3](https://img.shields.io/badge/ESP32--S3-E7352C?logo=espressif&logoColor=white)
+![Raspberry Pi](https://img.shields.io/badge/Pi_Zero_W-A22846?logo=raspberrypi&logoColor=white)
+![Proxmox](https://img.shields.io/badge/Proxmox_LXC-E57000?logo=proxmox&logoColor=white)
+![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare_Tunnel-F38020?logo=cloudflare&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-
-<!-- TODO: hero video of a receipt coming out of the printer -->
-
-<img width="360" alt="A printed receipt" src="https://github.com/user-attachments/assets/06aea23a-3358-4060-b0b3-5a38798ee363" />
-
-<sub><i>Real paper, printed from my browser.</i></sub>
 
 </div>
 
 <br>
 
 > [!TIP]
-> **Go print me something at [fax.pielka.sh](https://fax.pielka.sh).**\
-> A hello, a beer invitation, a selfie.\
-> It comes out in my flat a few seconds later, and I read every one.
+> **Print me something at [partyfax.nilanet.live](https://partyfax.nilanet.live).**\
+> It comes out of a thermal printer at my place a few seconds later.
 
 ## What it is
 
 You write on a receipt in your browser, swipe it off the top of the screen,
-and a thermal printer in my flat prints it. There's no app and no account.
+and a thermal printer at home prints it. There's no app and no account.
+Everything printed shows up on the wall at
+[/prints](https://partyfax.nilanet.live/prints).
 
 | | |
 | --- | --- |
@@ -39,26 +33,30 @@ and a thermal printer in my flat prints it. There's no app and no account.
 | **Styles** | bold, underline, white-on-black |
 | **Photos** | dithered to 1-bit in your browser, 384 dots wide |
 | **Feedback** | the site says "printed" only once the printer has taken the job |
+| **Limits** | three prints per visitor every ten minutes |
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    you([Browser]) -- HTTPS --> caddy[Caddy]
-    caddy --> gateway
-    subgraph VPS [VPS · Docker Compose]
-        caddy
+    you([Browser]) -- HTTPS --> cf[Cloudflare]
+    pi[Pi Zero W] -- "WSS /mqtt" --> cf
+    cf -- tunnel --> cloudflared
+    subgraph LXC [Proxmox LXC · Docker Compose]
+        cloudflared --> caddy[Caddy]
+        caddy --> gateway
         gateway -- render --> renderer
         gateway -- print --> dispatcher
         dispatcher -- MQTT --> broker[(Mosquitto)]
+        caddy -. /mqtt .-> broker
     end
-    esp[ESP32-S3] -- "WSS (dials out)" --> caddy
-    caddy -. /mqtt .-> broker
-    esp -- USB --> printer[/Thermal printer/]
+    pi -- USB --> printer[/Thermal printer/]
 ```
 
-A print request waits the whole way through: the browser gets its answer only
-after the printer has acked the job.
+Nothing is port-forwarded. Both the server and the printer connect *out*:
+the server's `cloudflared` dials Cloudflare, and the Pi dials the site's
+MQTT websocket. A print request waits the whole way through, so the browser
+gets its answer only after the printer has acked the job.
 
 <details>
 <summary><b>The pieces, in order</b></summary>
@@ -66,58 +64,51 @@ after the printer has acked the job.
 
 1. **Browser** (`frontend/`): vanilla JS with no build step. It lays text out
    on the paper grid, dithers photos, and posts to `POST /api/print`.
-2. **Caddy**: the only service facing the internet. It terminates HTTPS and
-   routes the site, the API and the MQTT websocket.
-3. **gateway** (`backend/`): the public API. It checks the message fits the
+2. **Cloudflare Tunnel**: terminates HTTPS. The `cloudflared` container
+   carries requests to Caddy, so the LXC publishes no ports.
+3. **Caddy**: routes the site, the API and the MQTT websocket, and
+   rate-limits prints by the visitor's real address (`Cf-Connecting-IP`).
+4. **gateway** (`backend/`): the public API. It checks the message fits the
    paper, then calls the renderer and the dispatcher.
-4. **renderer**: turns text or a photo into the printer's own command bytes
+5. **renderer**: turns text or a photo into the printer's own command bytes
    (ESC/POS).
-5. **dispatcher**: publishes the job over MQTT and waits for the printer to
+6. **dispatcher**: publishes the job over MQTT and waits for the printer to
    answer.
-6. **Mosquitto**: the message broker. The printer's account can receive jobs
+7. **Mosquitto**: the message broker. The printer's account can receive jobs
    but never create them.
-7. **ESP32-S3** (`firmware/`, Rust): sits next to the printer and dials out
-   over a secure websocket, so nothing at home is exposed. It checks for
-   paper, writes the bytes over USB, and acks back.
+8. **Pi Zero W** (`pi/`, Go): sits next to the printer, with the printer on
+   its USB OTG port. It checks for paper, writes the bytes through Linux's
+   `usblp` driver, and acks back.
 
 </details>
 
-<!-- TODO: photo of the hardware (ESP32-S3 + printer) -->
+## Hardware
+
+- **Thermal receipt printer:** 58 mm, ESC/POS over USB.
+- **Raspberry Pi Zero W v1.1**, running Raspberry Pi OS Lite (32-bit), with
+  the printer on the inner micro-USB port through an OTG adapter. It also has
+  a camera, which isn't used yet. A photobooth mode is planned.
+- **Server:** an unprivileged LXC on my Proxmox host, running the Docker
+  Compose stack.
 
 ## Repository
 
 ```
-frontend/   the receipt you type on (HTML, CSS, ES modules)
-backend/    gateway, renderer and dispatcher (Go)
-firmware/   ESP32-S3 firmware, USB host for the printer (Rust, ESP-IDF)
-deploy/     Caddy, Mosquitto, deploy and log scripts
+frontend/       the receipt you type on (HTML, CSS, ES modules)
+backend/        gateway, renderer and dispatcher (Go)
+pi/             the printer agent for the Pi Zero W (Go)
+deploy/         Caddy, Mosquitto, deploy and log scripts
+provisioning/   LXC host setup: SSH, CrowdSec, firewall, encrypted NAS backups
+firmware/       upstream's ESP32-S3 firmware (Rust); not used here
 ```
 
-<details>
-<summary><b>Run your own</b></summary>
-<br>
+## Running it
 
-> This fork runs at `partyfax.nilanet.live` behind a Cloudflare Tunnel, with
-> a Raspberry Pi Zero W (`pi/`) driving the printer. The domain is hardcoded
-> in `pi/main.go` (`PARTYFAX_MQTT_URL` default), `firmware/src/config.rs`,
-> the `frontend/` pages, and `backend/internal/render/render.go`.
-
-**Server** (Docker with Compose):
-
-```sh
-cp .env.example .env    # passwords and the tunnel token
-# create the broker users `backend` and `printer`; see deploy/README.md
-docker compose up -d --build
-```
-
-**Pi Zero W:** see [`pi/README.md`](pi/README.md).
-
-**Board** (ESP32-S3, needs the [esp-rs](https://github.com/esp-rs) toolchain):
-
-```sh
-cd firmware
-WIFI_SSID=... WIFI_PASS=... MQTT_PASS=... cargo run --release
-```
+- **Server:** [`deploy/README.md`](deploy/README.md) covers secrets, the
+  broker accounts, the tunnel, deploying with `./deploy/update.sh`, and
+  backups.
+- **Pi:** [`pi/README.md`](pi/README.md) covers building the agent, installing
+  it as a service, and the printer self-test.
 
 **Tests:**
 
@@ -126,15 +117,18 @@ cd backend  && go test ./...
 cd frontend && npm test
 ```
 
-The full deploy guide is in [`deploy/README.md`](deploy/README.md).
+## Credits
 
-</details>
+Forked from [michal-pielka/fax](https://github.com/michal-pielka/fax), which
+built the site, backend and ESP32 firmware. This fork moves it onto a Proxmox
+LXC behind a Cloudflare Tunnel and swaps the ESP32-S3 for a Raspberry Pi
+Zero W.
 
 ---
 
 <div align="center">
 
-### [fax.pielka.sh](https://fax.pielka.sh)
+### [partyfax.nilanet.live](https://partyfax.nilanet.live)
 
 *The paper is waiting.*
 
