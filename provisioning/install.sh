@@ -8,11 +8,11 @@
 #     arrives through the tunnel from cloudflared's address, so an iptables
 #     ban could only ever ban the tunnel. FAX_BANNED in .env bans visitors.
 #   - Host firewall (firewall/apply-rules.sh), reapplied at boot
-#   - age key for backups at /root/.config/age/backup-key.txt, generated once
-#     and never regenerated: that would orphan every existing backup. Keep a
-#     copy off this host; without it the backups are unrecoverable.
-#   - rclone (SMB) and a nightly encrypted backup to the NAS, 14 days kept
 #   - unattended-upgrades
+#
+# No backups here, on purpose: Proxmox's nightly job backs up the whole
+# container, so this box holds no NAS credentials and needs no route to the
+# NAS. See deploy/README.md.
 #
 # Touches nothing in docker-compose.yml or the running stack.
 set -euo pipefail
@@ -93,55 +93,10 @@ install -m 0644 "$SCRIPT_DIR/firewall/partyfax-firewall.service" /etc/systemd/sy
 systemctl daemon-reload
 systemctl enable --now partyfax-firewall.service
 
-echo "== Backup encryption key =="
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq age
-mkdir -p /root/.config/age
-if [ ! -f /root/.config/age/backup-key.txt ]; then
-  age-keygen -o /root/.config/age/backup-key.txt
-  chmod 600 /root/.config/age/backup-key.txt
-  echo "New backup key generated. Save /root/.config/age/backup-key.txt in"
-  echo "the password manager: without it every backup is unrecoverable."
-fi
-
-echo "== rclone (SMB backend for NAS backups) =="
-# Regenerated every run, so rotating the NAS password in .env takes effect
-# on the next install.sh.
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq rclone
-ENV_FILE="$SCRIPT_DIR/../.env"
-mkdir -p /root/.config/rclone
-if [ -f "$ENV_FILE" ]; then
-  CIFS_HOST=$(grep -E '^CIFS_HOST=' "$ENV_FILE" | cut -d= -f2-)
-  CIFS_USERNAME=$(grep -E '^CIFS_USERNAME=' "$ENV_FILE" | cut -d= -f2-)
-  CIFS_PASSWORD=$(grep -E '^CIFS_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
-  if [ -n "$CIFS_USERNAME" ] && [ -n "$CIFS_PASSWORD" ]; then
-    OBSCURED_PASS=$(rclone obscure "$CIFS_PASSWORD")
-    cat > /root/.config/rclone/rclone.conf <<EOF
-[pfnas]
-type = smb
-host = $CIFS_HOST
-user = $CIFS_USERNAME
-pass = $OBSCURED_PASS
-port = 445
-EOF
-    chmod 600 /root/.config/rclone/rclone.conf
-  else
-    echo "CIFS_USERNAME/CIFS_PASSWORD not set in .env yet -- skipping rclone.conf."
-    echo "Backups fail until they are filled in and install.sh is re-run."
-  fi
-fi
-
-echo "== Nightly backup =="
-install -m 0755 "$SCRIPT_DIR/backup/backup.sh" /usr/local/sbin/partyfax-backup.sh
-install -m 0644 "$SCRIPT_DIR/backup/partyfax-backup.service" /etc/systemd/system/partyfax-backup.service
-install -m 0644 "$SCRIPT_DIR/backup/partyfax-backup.timer" /etc/systemd/system/partyfax-backup.timer
-systemctl daemon-reload
-systemctl enable --now partyfax-backup.timer
-
 echo "== unattended-upgrades =="
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unattended-upgrades
 
 echo "== Status =="
 systemctl is-active crowdsec crowdsec-firewall-bouncer partyfax-firewall unattended-upgrades
-systemctl list-timers partyfax-backup.timer --no-pager
 iptables -S INPUT
 iptables -S DOCKER-USER

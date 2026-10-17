@@ -85,7 +85,8 @@ services:
     # Not rotated: a square photo is under 20 KB, so a full volume is months
     # of strangers away, and it is the only record of what came out.
     # The wall at /prints: every print, one JSON line each, and the ids
-    # taken down with deploy/hide.sh. Both are in the nightly backup.
+    # taken down with deploy/hide.sh. Both are in Proxmox's nightly
+    # backup of the container.
     volumes:
       - photos:/var/lib/fax/photos
       - wall:/var/lib/fax/wall

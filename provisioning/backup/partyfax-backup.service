@@ -1,6 +1,0 @@
-[Unit]
-Description=Nightly partyfax backup to the NAS
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/partyfax-backup.sh

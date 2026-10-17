@@ -13,9 +13,8 @@ Pi agent --WSS /mqtt--> Cloudflare --tunnel--> ...
 
 ## One-time setup
 
-Host provisioning (Docker, SSH hardening, CrowdSec, firewall, backups) is
-`provisioning/install.sh`. It's idempotent, so re-run it after changing
-`.env`'s NAS credentials.
+Host provisioning (Docker, SSH hardening, CrowdSec, firewall) is
+`provisioning/install.sh`. It's idempotent and safe to re-run.
 
 Secrets live in `.env` and the broker's password file. Neither is committed.
 
@@ -103,10 +102,15 @@ included only if its log line survived. Running it twice adds nothing twice.
 
 ## Backups
 
-`partyfax-backup.timer` runs nightly at 09:00 UTC. It tars the wall, the
-photos, the broker's `passwd` and `.env`, encrypts them with the age key at
-`/root/.config/age/backup-key.txt`, and copies them to the `partyfax` share on the NAS at `CIFS_HOST` (`.env`).
-It keeps 14 days. Restore steps are at the top of `provisioning/backup/backup.sh`.
+Proxmox's nightly backup job on the host includes this container (CT 102),
+so everything is in it: the wall and photos in the Docker volumes, `.env`,
+and the broker's `passwd`. The container itself holds no NAS credentials and
+has no route to the NAS. That's deliberate: it's the box strangers can reach,
+so a compromise of it shouldn't lead anywhere near the backups.
+
+To restore, use the Proxmox UI (the container's Backup tab, then Restore).
+For a single file, open the archive on the host:
+`tar -I zstd -xf vzdump-lxc-102-*.tar.zst ./var/lib/docker/volumes/fax_wall`.
 
 ## The printer
 

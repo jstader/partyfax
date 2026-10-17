@@ -99,7 +99,7 @@ frontend/       the receipt you type on (HTML, CSS, ES modules)
 backend/        gateway, renderer and dispatcher (Go)
 pi/             the printer agent for the Pi Zero W (Go)
 deploy/         Caddy, Mosquitto, deploy and log scripts
-provisioning/   LXC host setup: SSH, CrowdSec, firewall, encrypted NAS backups
+provisioning/   LXC host setup: SSH, CrowdSec, firewall
 ```
 
 ## Running it
