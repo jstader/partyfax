@@ -63,6 +63,47 @@ else
 	echo "NetworkManager not found; skipping."
 fi
 
+say "SSH: keys only"
+# Raspberry Pi Imager's "public-key only" option already does this; this
+# keeps it so after a re-flash that chose passwords. Only once the person
+# running this has a key, or it would lock them out. 10- sorts before
+# cloud-init's 50-, and sshd takes the first value it reads.
+home=$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)
+if [ -s "$home/.ssh/authorized_keys" ]; then
+	printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\n' \
+		>/etc/ssh/sshd_config.d/10-partyfax.conf
+	sshd -t && systemctl reload ssh
+	echo "Done."
+else
+	echo "No SSH key for ${SUDO_USER:-root} yet, so passwords stay on. Add one"
+	echo "(ssh-copy-id from your computer) and run this again."
+fi
+
+say "Automatic security updates"
+# Raspberry Pi OS packages come from the "Raspbian" and "Raspberry Pi
+# Foundation" origins; unattended-upgrades' stock list only names Debian's,
+# and would quietly install nothing. A kernel update needs a reboot, so it
+# reboots itself at 04:00 when one is waiting: the printer is gone a minute.
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unattended-upgrades >/dev/null
+cat >/etc/apt/apt.conf.d/51partyfax-unattended <<'CONF'
+Unattended-Upgrade::Origins-Pattern {
+	"origin=Raspbian,codename=${distro_codename},label=Raspbian";
+	"origin=Raspberry Pi Foundation,codename=${distro_codename},label=Raspberry Pi Foundation";
+};
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+CONF
+printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' \
+	>/etc/apt/apt.conf.d/20auto-upgrades
+echo "Done. Daily, rebooting at 04:00 only when an update needs it."
+
+say "Bluetooth off"
+# Nothing here uses it, and a radio stack that is listening is something to
+# attack from the street.
+systemctl disable --now bluetooth.service hciuart.service 2>/dev/null || true
+systemctl mask bluetooth.service >/dev/null 2>&1 || true
+echo "Done."
+
 say "Installing the service"
 curl -fsSL "$UNIT_URL" -o "$tmp"
 install -m 0644 "$tmp" /etc/systemd/system/partyfax-agent.service

@@ -41,13 +41,15 @@ in about half an hour, most of it waiting.
    versions, click *Edit Settings*). This is what lets the Pi join Wi-Fi and
    accept SSH with no screen or keyboard:
    - **Hostname:** `partyfax-pi`
-   - **Username and password:** a username such as `pi` and a password you'll
-     remember. You'll log in with these.
+   - **Username and password:** a username such as `pi` and a strong
+     password. You won't log in with it, but `sudo` asks for it.
    - **Wi-Fi:** your 2.4 GHz network name and password, and your country. The
      country matters: Wi-Fi stays off without it.
    - **Time zone:** yours.
-   - **SSH:** turn it on. "Use password authentication" is simplest. If you
-     already use SSH keys, paste your public key instead.
+   - **SSH:** turn it on and choose **public-key authentication only**.
+     Imager can fill in the key from your computer. If you don't have one
+     yet, make one first with `ssh-keygen -t ed25519` in a terminal, then
+     click *Add SSH key*. Keys can't be guessed the way passwords can.
    - Leave Raspberry Pi Connect off.
 7. Write the card and wait for it to finish and verify. Imager says when it's
    safe to remove the card.
@@ -66,7 +68,7 @@ in about half an hour, most of it waiting.
    ```
 
    Use the username you chose if it isn't `pi`. Answer `yes` to the
-   fingerprint question, then enter the password from step 1.
+   fingerprint question. There's no password prompt: your key logs you in.
 
 **If `partyfax-pi.local` isn't found:** give the Pi a few more minutes, then
 check that it shows up in your router's list of connected devices. If it
@@ -82,9 +84,12 @@ Still logged in to the Pi, run this one line:
 curl -fsSL https://raw.githubusercontent.com/jstader/partyfax/main/pi/install.sh | sudo bash
 ```
 
-It downloads the agent, asks for the **printer's broker password** (paste it;
-nothing shows as you type), and sets the agent to start on every boot. If
-the printer is already plugged in, it offers to print a test receipt.
+`sudo` asks for the password you set in Imager. The installer then downloads
+the agent and asks for the **printer's broker password** (paste it; nothing
+shows as you type). It also locks the Pi down: SSH by key only, automatic
+security updates (rebooting at 04:00 only when an update needs it), and
+Bluetooth off. Last, it sets the agent to start on every boot and, if the
+printer is already plugged in, offers to print a test receipt.
 
 ## 4. Connect the printer
 
