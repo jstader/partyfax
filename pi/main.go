@@ -171,6 +171,10 @@ func run(ctx context.Context, cfg config) {
 		logger.Info("using a Cloudflare Access service token")
 	}
 
+	// paho retries forever and says nothing about why an attempt failed:
+	// a refused Access token or a wrong password looked like silence.
+	mqtt.ERROR = slog.NewLogLogger(logger.Handler(), slog.LevelError)
+
 	client := mqtt.NewClient(opts)
 	client.Connect()
 
