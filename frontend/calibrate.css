@@ -15,17 +15,31 @@ h1 {
   font-size: 20px;
 }
 
-#sheet {
+#sheets {
+  list-style: none;
+  padding: 0;
+}
+
+#sheets li {
+  margin: 0 0 20px;
+}
+
+#sheets label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.note {
+  color: #666;
+}
+
+#sheets canvas {
   display: block;
   width: 100%;
   max-width: 384px;
   background: #fff;
-  /* One sheet pixel is one printer dot: keep them square and sharp. */
+  /* One canvas pixel is one printer dot: keep them square and sharp. */
   image-rendering: pixelated;
-}
-
-#legend {
-  padding-left: 20px;
 }
 
 button {
