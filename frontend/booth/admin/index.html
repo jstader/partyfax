@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Photobooth admin</title>
+<link rel="stylesheet" href="/booth/booth.css?v=1">
+</head>
+<body class="admin">
+<main>
+  <h1>Photobooth events</h1>
+  <p id="note" class="note" role="status"></p>
+
+  <section id="list-view">
+    <ul id="events" class="events"></ul>
+    <button id="new">New event</button>
+  </section>
+
+  <section id="edit-view" hidden>
+    <p><button id="back" class="quiet">&larr; All events</button></p>
+    <div class="admin-grid">
+      <form id="form" class="event">
+        <label for="f-title">Title</label>
+        <input id="f-title" type="text" maxlength="40" required>
+        <label for="f-subtitle">Subtitle (optional)</label>
+        <input id="f-subtitle" type="text" maxlength="60" placeholder="e.g. 18 October 2026">
+        <label for="f-font">Font</label>
+        <select id="f-font"></select>
+        <label for="f-frame">Frame</label>
+        <select id="f-frame"></select>
+        <label>Icons (up to 4)</label>
+        <div id="f-icons" class="icon-picks"></div>
+        <div class="toggles">
+          <label><input id="f-active" type="checkbox"> Open (guests can print)</label>
+          <label><input id="f-wall" type="checkbox"> Wall on</label>
+        </div>
+        <div class="row">
+          <button type="submit" id="save">Save</button>
+          <button type="button" id="test">Print a test strip</button>
+        </div>
+        <div class="row" id="saved-only" hidden>
+          <button type="button" id="new-code" class="quiet">New code</button>
+          <button type="button" id="show-sign" class="quiet">Sign to print</button>
+          <button type="button" id="delete" class="quiet">Delete event</button>
+        </div>
+      </form>
+      <div class="preview-col">
+        <canvas id="preview" class="strip"></canvas>
+        <p class="note">Preview with stand-in photos.</p>
+      </div>
+    </div>
+
+    <div id="sign" class="sign" hidden>
+      <div id="sign-title"></div>
+      <p>Photobooth</p>
+      <p>Open <strong>photobooth.nilanet.live</strong> on your phone and enter</p>
+      <div id="sign-code" class="big-code"></div>
+    </div>
+
+    <h2>Strips</h2>
+    <ul id="strips" class="admin-strips"></ul>
+  </section>
+</main>
+<script type="module" src="/booth/admin/admin.js?v=1"></script>
+</body>
+</html>

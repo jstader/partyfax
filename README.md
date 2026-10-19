@@ -36,6 +36,16 @@ Everything printed shows up on the wall at
 | **Feedback** | the site says "printed" only once the printer has taken the job |
 | **Limits** | per visitor: 5 prints a minute, 50 an hour, 100 a day |
 
+## The photobooth
+
+At a party, guests open **photobooth.nilanet.live** on their phone and type
+the event's code from a sign. They tap **Enter the photobooth**, and after a
+5-second countdown the front camera takes four photos, a few seconds apart.
+These print as a classic photo strip, themed for the event with its own
+frame, title and icons. Each event has its own private wall of strips,
+separate from the public one. Events are set up on an admin page behind
+Cloudflare Access.
+
 ## How it works
 
 ```mermaid
@@ -96,7 +106,8 @@ gets its answer only after the printer has acked the job.
 
 ```
 frontend/       the receipt you type on (HTML, CSS, ES modules)
-backend/        gateway, renderer and dispatcher (Go)
+frontend/booth/ the photobooth: booth, event wall, admin page
+backend/        gateway, renderer, dispatcher and booth (Go)
 pi/             the printer agent for the Pi Zero W (Go)
 deploy/         Caddy, Mosquitto, deploy and log scripts
 provisioning/   LXC host setup: SSH, CrowdSec, firewall

@@ -78,6 +78,32 @@ In Cloudflare Zero Trust:
 5. Save. Check that `https://partyfax.nilanet.live/` still loads in a private
    window and the printer still shows online.
 
+### The photobooth host and its admin
+
+The photobooth is a second hostname on the same tunnel, served by the same
+Caddy, which sends it to the `booth` service. Two one-time steps in
+Cloudflare Zero Trust:
+
+1. **Public hostname.** Networks → Tunnels → your tunnel → Public Hostname
+   → Add: `photobooth.nilanet.live` → service `HTTP`, URL `caddy:80`.
+2. **Access for the admin page.** Access → Applications → Add →
+   Self-hosted, named `photobooth admin`, domain `photobooth.nilanet.live`
+   with **two** paths: `admin` and `api/booth/admin`. Add one policy:
+   action **Allow**, include **Emails**: yours. (Allow here, not Service
+   Auth: a person logs in with a one-time code.) Then copy the app's
+   **Audience (AUD) tag** and your team domain (Settings → Custom Pages,
+   `<team>.cloudflareaccess.com`) into `.env` as `CF_ACCESS_AUD` and
+   `CF_ACCESS_TEAM_DOMAIN`, and run `docker compose up -d booth`.
+
+The booth checks the Access token itself as well, so if the Access app is
+ever deleted, admin stays closed rather than open. Guests need no login,
+only the event code. Codes are 6 characters, and joining is limited to 10
+tries a minute per address, so codes can't realistically be guessed.
+
+Booth limits per address: 3 strips a minute, 30 an hour, 60 a day. Strips
+are kept in the `booth` volume, `/var/lib/docker/volumes/fax_booth`, and are
+in the nightly Proxmox backup like everything else.
+
 ## Every deploy
 
 ```sh

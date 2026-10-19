@@ -18,33 +18,16 @@
 	}
 }
 
-# Any Host: only cloudflared reaches this listener, and it sends only the
-# hostnames the tunnel is configured for.
-:80 {
+# ---- shared by both sites ------------------------------------------------
+
+(edge) {
 	encode gzip
 
 	# The edge sees what no service does: static files, the broker websocket,
-	# and anything refused before it reaches the gateway.
+	# and anything refused before it reaches a service.
 	log {
 		output stdout
 		format json
-	}
-
-	# The pages load nothing from anywhere else: no inline script or style,
-	# same-origin fetch and EventSource, images from the site, data: (icons)
-	# and blob: (the photo preview). So the policy can say exactly that.
-	# The JSON-LD block in index.html is data, not script, and is unaffected.
-	header {
-		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
-		# No includeSubDomains: other nilanet.live names are LAN-only and
-		# not all of them need to be HTTPS.
-		Strict-Transport-Security "max-age=31536000"
-		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
-		Referrer-Policy strict-origin-when-cross-origin
-		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
-		Cross-Origin-Opener-Policy same-origin
-		-Server
 	}
 
 	# FAX_BANNED from .env: space-separated IPs or CIDR ranges. Their
@@ -54,6 +37,135 @@
 	handle @banned {
 		abort
 	}
+
+	# The page shows a refusal's "error" field, so say it in its words.
+	handle_errors 429 {
+		header Content-Type application/json
+		respond `{"error":"too many prints, try again in a few minutes"}` 429
+	}
+}
+
+# The pages load nothing from anywhere else: no inline script or style,
+# same-origin fetch and EventSource, images from the site, data: (icons) and
+# blob: (photo previews, wall strips). So the policy can say exactly that.
+# The JSON-LD block in index.html is data, not script, and is unaffected.
+# The argument is the camera permission: none on the main site, the page
+# itself on the photobooth.
+(headers) {
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		# No includeSubDomains: other nilanet.live names are LAN-only and
+		# not all of them need to be HTTPS.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera={args[0]}, microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy same-origin
+		-Server
+	}
+}
+
+# Without a header of its own, Cloudflare tells browsers to keep files for
+# four hours, so a deploy reaches visitors piecemeal: new app.js, old
+# photo.js. no-cache means ask every time; the ETag makes that a 304 when
+# nothing changed. Fonts never change under the same name, so they are kept.
+(static_cache) {
+	@font path /fonts/*
+	@notfont not path /fonts/*
+	header @font Cache-Control "public, max-age=31536000, immutable"
+	header @notfont Cache-Control "no-cache"
+}
+
+# The visitor's address for the services' logs. The gateway logs the last
+# X-Forwarded-For entry as the caller, and Caddy would append cloudflared's
+# after the visitor's: one value, the trusted one, instead.
+(forward_client) {
+	header_up X-Forwarded-For {client_ip}
+}
+
+# ---- photobooth.nilanet.live ----------------------------------------------
+
+# A more specific address than :80 below, so Caddy sends this host here.
+http://photobooth.nilanet.live {
+	import edge
+	import headers (self)
+
+	# Per visitor address. Joining is limited hard so event codes can't be
+	# guessed: 10 tries a minute is 14,400 a day against 887 million codes.
+	# Strips are long, so fewer of them than the main site's prints.
+	rate_limit {
+		zone booth_join {
+			match {
+				method POST
+				path /api/booth/join
+			}
+			key {client_ip}
+			events 10
+			window 1m
+		}
+		zone booth_print_minute {
+			match {
+				method POST
+				path /api/booth/print
+			}
+			key {client_ip}
+			events 3
+			window 1m
+		}
+		zone booth_print_hour {
+			match {
+				method POST
+				path /api/booth/print
+			}
+			key {client_ip}
+			events 30
+			window 1h
+		}
+		zone booth_print_day {
+			match {
+				method POST
+				path /api/booth/print
+			}
+			key {client_ip}
+			events 60
+			window 24h
+		}
+	}
+
+	# /api/booth/admin/* is behind Cloudflare Access at the edge, and the
+	# booth checks the Access token again itself.
+	handle /api/booth/* {
+		reverse_proxy booth:8083 {
+			import forward_client
+		}
+	}
+
+	# The booth's pages live in the same tree as the main site's, under
+	# /booth/, so they share js/photo.js and the fonts. Only those three
+	# folders are served here; the main site's pages are not.
+	handle {
+		root * /srv/web
+		rewrite / /booth/index.html
+		rewrite /wall /booth/wall.html
+		rewrite /admin /booth/admin/index.html
+		rewrite /admin/ /booth/admin/index.html
+
+		@outside not path /booth/* /js/* /fonts/*
+		respond @outside 404
+
+		import static_cache
+		file_server
+	}
+}
+
+# ---- partyfax.nilanet.live (any other host) --------------------------------
+
+# Any Host: only cloudflared reaches this listener, and it sends only the
+# hostnames the tunnel is configured for.
+:80 {
+	import edge
+	import headers ()
 
 	# Per visitor address, refused prints included: at most 5 a minute, 50
 	# an hour and 100 a day. A print has to fit all three. Everything else,
@@ -88,22 +200,13 @@
 		}
 	}
 
-	# The page shows a refusal's "error" field, so say it in its words.
-	handle_errors 429 {
-		header Content-Type application/json
-		respond `{"error":"too many prints, try again in a few minutes"}` 429
-	}
-
 	handle /mqtt* {
 		reverse_proxy mosquitto:9001
 	}
 
 	handle /api/* {
-		# The gateway logs the last X-Forwarded-For entry as the caller,
-		# and Caddy would append cloudflared's address after the
-		# visitor's. One value, the trusted one, instead.
 		reverse_proxy gateway:8080 {
-			header_up X-Forwarded-For {client_ip}
+			import forward_client
 		}
 	}
 
@@ -112,15 +215,11 @@
 		# Clean page URLs: /prints serves prints.html.
 		try_files {path} {path}.html
 
-		# Without a header of its own, Cloudflare tells browsers to keep files
-		# for four hours, so a deploy reaches visitors piecemeal: new app.js,
-		# old photo.js. no-cache means ask every time; the ETag makes that a
-		# 304 when nothing changed. The font never changes, so it is kept.
-		@font path /fonts/*
-		@notfont not path /fonts/*
-		header @font Cache-Control "public, max-age=31536000, immutable"
-		header @notfont Cache-Control "no-cache"
+		# The photobooth's pages belong to its own host.
+		@booth path /booth /booth/*
+		respond @booth 404
 
+		import static_cache
 		file_server
 	}
 }

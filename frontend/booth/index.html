@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#111111">
+<title>Photobooth</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='4' width='14' height='10' rx='2' fill='%23000'/%3E%3Ccircle cx='8' cy='9' r='3' fill='%23fff'/%3E%3Crect x='5' y='2' width='6' height='3' fill='%23000'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/booth/booth.css?v=1">
+</head>
+<body>
+<main>
+  <!-- One screen at a time; booth.js shows them. -->
+  <section id="screen-code" class="screen">
+    <h1>Photobooth</h1>
+    <p>Type the code from the sign.</p>
+    <form id="code-form" autocomplete="off">
+      <input id="code" inputmode="text" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="ABC 234" aria-label="Event code">
+      <button type="submit">Go</button>
+    </form>
+    <p id="code-error" class="error" role="alert"></p>
+  </section>
+
+  <section id="screen-ready" class="screen" hidden>
+    <h1 id="event-title"></h1>
+    <p id="event-subtitle" class="sub"></p>
+    <p>Four photos, a few seconds apart. Then it prints.</p>
+    <button id="enter" class="big">Enter the photobooth</button>
+    <p class="links"><a id="wall-link" href="/wall" hidden>See everyone's strips</a></p>
+    <p class="links"><button id="leave" class="quiet">Different event</button></p>
+  </section>
+
+  <section id="screen-camera" class="screen camera" hidden>
+    <div class="viewfinder">
+      <video id="video" playsinline muted></video>
+      <div id="count" class="count" aria-live="assertive"></div>
+      <div id="flash" class="flash"></div>
+    </div>
+    <ol id="thumbs" class="thumbs"></ol>
+    <p id="camera-note" class="note"></p>
+  </section>
+
+  <section id="screen-review" class="screen" hidden>
+    <canvas id="preview" class="strip"></canvas>
+    <div class="actions">
+      <button id="print" class="big">Print it</button>
+      <button id="retake" class="quiet">Retake</button>
+    </div>
+    <p id="print-status" class="note" role="status"></p>
+  </section>
+
+  <section id="screen-done" class="screen" hidden>
+    <h1>Printed!</h1>
+    <p>Grab your strip from the printer.</p>
+    <button id="again" class="big">Take another</button>
+    <p class="links"><a id="wall-link-done" href="/wall" hidden>See everyone's strips</a></p>
+  </section>
+</main>
+<script type="module" src="/booth/booth.js?v=1"></script>
+</body>
+</html>
