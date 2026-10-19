@@ -92,6 +92,16 @@
 		root * /srv/web
 		# Clean page URLs: /prints serves prints.html.
 		try_files {path} {path}.html
+
+		# Without a header of its own, Cloudflare tells browsers to keep files
+		# for four hours, so a deploy reaches visitors piecemeal: new app.js,
+		# old photo.js. no-cache means ask every time; the ETag makes that a
+		# 304 when nothing changed. The font never changes, so it is kept.
+		@font path /fonts/*
+		@notfont not path /fonts/*
+		header @font Cache-Control "public, max-age=31536000, immutable"
+		header @notfont Cache-Control "no-cache"
+
 		file_server
 	}
 }
