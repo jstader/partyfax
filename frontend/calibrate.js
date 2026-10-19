@@ -3,8 +3,8 @@
    Each receipt is numbered across the top and has a black-to-white ramp
    along the bottom. Not linked from the site.
 
-   The site allows three prints per ten minutes per address, so the queue
-   prints what it can and waits out the limit for the rest by itself. */
+   The site allows five prints a minute per address, so the queue prints
+   what it can and waits out the limit for the rest by itself. */
 
 // Versioned, so a browser holding an older copy cannot pair it with this page.
 import { fit, dither, unpack, encodePNG } from './js/photo.js?v=3';
@@ -94,7 +94,7 @@ async function printOne(p) {
 async function countdown(note, ms) {
   for (let left = ms; left > 0; left -= 1000) {
     note.textContent = `rate limit: retrying in ${Math.ceil(left / 1000)}s`;
-    status.textContent = 'waiting for the print limit (3 per 10 minutes); leave this page open';
+    status.textContent = 'waiting for the print limit (5 a minute); leave this page open';
     await new Promise((r) => setTimeout(r, 1000));
   }
 }

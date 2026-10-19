@@ -90,8 +90,9 @@ or Caddy only when their config changed.
 
 ## Rate limit
 
-Caddy allows each address three `POST /api/print` per ten minutes and
-answers the rest with `429` and a message the page shows. The page, the
+Caddy allows each address 5 `POST /api/print` a minute, 50 an hour and 100
+a day (three zones; a print has to fit all of them), and answers the rest
+with `429` and a message the page shows. The page, the
 wall and the rest of the API are never limited. Change it in the
 `rate_limit` block of the Caddyfile; `update.sh` restarts Caddy when that
 file changes. The counts live in Caddy's memory and reset on a restart.

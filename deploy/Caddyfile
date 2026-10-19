@@ -55,17 +55,36 @@
 		abort
 	}
 
-	# Three prints per ten minutes per address, refused prints included.
-	# Everything else, the page and the wall, is never limited.
+	# Per visitor address, refused prints included: at most 5 a minute, 50
+	# an hour and 100 a day. A print has to fit all three. Everything else,
+	# the page and the wall, is never limited.
 	rate_limit {
-		zone prints {
+		zone prints_minute {
 			match {
 				method POST
 				path /api/print
 			}
 			key {client_ip}
-			events 3
-			window 10m
+			events 5
+			window 1m
+		}
+		zone prints_hour {
+			match {
+				method POST
+				path /api/print
+			}
+			key {client_ip}
+			events 50
+			window 1h
+		}
+		zone prints_day {
+			match {
+				method POST
+				path /api/print
+			}
+			key {client_ip}
+			events 100
+			window 24h
 		}
 	}
 

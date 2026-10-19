@@ -34,7 +34,7 @@ Everything printed shows up on the wall at
 | **Styles** | bold, underline, white-on-black |
 | **Photos** | dithered to 1-bit in your browser, 384 dots wide |
 | **Feedback** | the site says "printed" only once the printer has taken the job |
-| **Limits** | three prints per visitor every ten minutes |
+| **Limits** | per visitor: 5 prints a minute, 50 an hour, 100 a day |
 
 ## How it works
 
