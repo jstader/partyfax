@@ -30,6 +30,23 @@
 		format json
 	}
 
+	# The pages load nothing from anywhere else: no inline script or style,
+	# same-origin fetch and EventSource, images from the site, data: (icons)
+	# and blob: (the photo preview). So the policy can say exactly that.
+	# The JSON-LD block in index.html is data, not script, and is unaffected.
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+		# No includeSubDomains: other nilanet.live names are LAN-only and
+		# not all of them need to be HTTPS.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy same-origin
+		-Server
+	}
+
 	# FAX_BANNED from .env: space-separated IPs or CIDR ranges. Their
 	# connections are closed with no response. Empty bans nobody.
 	# client_ip, not remote_ip: the remote is always cloudflared.
