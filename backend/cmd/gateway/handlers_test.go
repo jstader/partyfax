@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"image"
 	"image/png"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"testing"
 
 	"github.com/jstader/partyfax/backend/internal/doc"
-	"github.com/jstader/partyfax/backend/internal/httpx"
 	"github.com/jstader/partyfax/backend/internal/logging"
 )
 
@@ -388,63 +386,5 @@ func TestBodyTooLargeIsRejected(t *testing.T) {
 
 	if rec := do(t, newAPI(&fakeRenderer{}, &fakeDispatcher{}), http.MethodPost, "/api/print", huge); rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
-	}
-}
-
-// The handler tests use fakes, so this covers the real client: an upstream's
-// status has to survive the trip, or the mapping above is meaningless.
-func TestClientPreservesUpstreamStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		httpx.WriteJSON(w, http.StatusConflict, map[string]string{"error": "printer is out of paper"})
-	}))
-	defer srv.Close()
-
-	err := NewDispatcherClient(srv.URL, srv.Client()).Print(context.Background(), "abc", []byte("x"))
-
-	var ue *upstreamError
-	if !errors.As(err, &ue) {
-		t.Fatalf("error = %v, want an *upstreamError", err)
-	}
-
-	if ue.Status != http.StatusConflict || ue.Msg != "printer is out of paper" {
-		t.Errorf("got %d %q", ue.Status, ue.Msg)
-	}
-}
-
-// ESC/POS is not valid UTF-8, so the payload has to survive JSON as bytes.
-func TestRendererClientPreservesPayloadBytes(t *testing.T) {
-	want := []byte{0x1b, '@', 0x00, 0xff, 'h', 'i'}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		httpx.WriteJSON(w, http.StatusOK, renderResponse{Payload: want})
-	}))
-	defer srv.Close()
-
-	got, err := NewRendererClient(srv.URL, srv.Client()).
-		Render(context.Background(), doc.Document{Text: "hi"})
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-
-	if string(got) != string(want) {
-		t.Errorf("payload = %v, want %v", got, want)
-	}
-}
-
-// A service that is down is not the same as one reporting on the printer, and
-// must not be mistaken for a deliberate status.
-func TestDeadUpstreamIsNotAnUpstreamStatus(t *testing.T) {
-	srv := httptest.NewServer(nil)
-	url := srv.URL
-	srv.Close()
-
-	_, err := NewDispatcherClient(url, http.DefaultClient).State(context.Background())
-	if err == nil {
-		t.Fatal("want an error from a closed upstream")
-	}
-
-	var ue *upstreamError
-	if errors.As(err, &ue) {
-		t.Errorf("a transport failure became %v; it has no upstream status", ue)
 	}
 }

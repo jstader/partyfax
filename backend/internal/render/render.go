@@ -132,6 +132,19 @@ func RenderPhoto(img image.Image) []byte {
 	return buf.Bytes()
 }
 
+// RenderStrip returns the bytes for a photobooth strip: the picture alone,
+// no FAX header or footer, since the strip draws its own frame and title.
+// Like RenderPhoto it is one raster command, so it prints in one motion.
+func RenderStrip(img image.Image) []byte {
+	var buf bytes.Buffer
+
+	buf.Write(reset)
+	raster(&buf, img)
+	buf.Write(feed(tailFeed))
+
+	return buf.Bytes()
+}
+
 // raster emits GS v 0 m xL xH yL yH d1..dk: x is bytes per row, y rows, then
 // the rows themselves, eight pixels a byte, leftmost pixel in the high bit,
 // one for black.

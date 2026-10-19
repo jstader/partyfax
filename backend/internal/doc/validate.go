@@ -64,17 +64,27 @@ func RowsOf(text string, cols int) int {
 // size is known good, so a hostile file costs the caller a 400 and us thirty
 // bytes of reading.
 func ValidatePhoto(r io.Reader) (image.Config, error) {
+	return validatePicture(r, "photo", PhotoMaxRows)
+}
+
+// ValidateStrip is ValidatePhoto for a photobooth strip: the same width,
+// up to StripMaxRows tall.
+func ValidateStrip(r io.Reader) (image.Config, error) {
+	return validatePicture(r, "strip", StripMaxRows)
+}
+
+func validatePicture(r io.Reader, what string, maxRows int) (image.Config, error) {
 	cfg, err := png.DecodeConfig(r)
 	if err != nil {
 		return cfg, invalidf("not a PNG: %v", err)
 	}
 
 	if cfg.Width != PhotoWidth {
-		return cfg, invalidf("photo is %d dots wide, the paper is %d", cfg.Width, PhotoWidth)
+		return cfg, invalidf("%s is %d dots wide, the paper is %d", what, cfg.Width, PhotoWidth)
 	}
 
-	if cfg.Height < 1 || cfg.Height > PhotoMaxRows {
-		return cfg, invalidf("photo is %d rows tall, the limit is %d", cfg.Height, PhotoMaxRows)
+	if cfg.Height < 1 || cfg.Height > maxRows {
+		return cfg, invalidf("%s is %d rows tall, the limit is %d", what, cfg.Height, maxRows)
 	}
 
 	return cfg, nil

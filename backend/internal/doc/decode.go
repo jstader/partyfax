@@ -26,12 +26,21 @@ func Decode(r io.Reader, l Limits) (Document, error) {
 // ReadPhoto reads a whole PNG body and checks its header with ValidatePhoto.
 // The bytes come back undecoded; every error wraps ErrInvalid.
 func ReadPhoto(r io.Reader) ([]byte, image.Config, error) {
+	return readPicture(r, "photo", ValidatePhoto)
+}
+
+// ReadStrip is ReadPhoto for a photobooth strip, checked with ValidateStrip.
+func ReadStrip(r io.Reader) ([]byte, image.Config, error) {
+	return readPicture(r, "strip", ValidateStrip)
+}
+
+func readPicture(r io.Reader, what string, validate func(io.Reader) (image.Config, error)) ([]byte, image.Config, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
-		return nil, image.Config{}, invalidf("photo too large or unreadable")
+		return nil, image.Config{}, invalidf("%s too large or unreadable", what)
 	}
 
-	cfg, err := ValidatePhoto(bytes.NewReader(b))
+	cfg, err := validate(bytes.NewReader(b))
 
 	return b, cfg, err
 }

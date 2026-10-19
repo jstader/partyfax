@@ -18,6 +18,10 @@ import (
 // photo is under 20 KB as PNG, so the same cap serves both kinds.
 const maxBody = 64 << 10 // 64 KiB
 
+// maxStripBody is for photobooth strips: up to doc.StripMaxRows rows of 48
+// bytes, about 66 KB, sent as a PNG of stored (uncompressed) blocks.
+const maxStripBody = 256 << 10 // 256 KiB
+
 type api struct {
 	log *slog.Logger
 }
@@ -28,6 +32,7 @@ func (a *api) routes() *http.ServeMux {
 	// Nothing here is public -- the gateway is the only caller -- so the paths
 	// are marked internal to make that obvious in logs and proxy configs.
 	mux.HandleFunc("POST /internal/render", a.render)
+	mux.HandleFunc("POST /internal/render/strip", a.renderStrip)
 	mux.HandleFunc("GET /internal/health", httpx.Health)
 
 	return mux
@@ -94,6 +99,29 @@ func (a *api) renderPhoto(w http.ResponseWriter, r *http.Request) {
 
 	payload := render.RenderPhoto(img)
 	a.log.DebugContext(r.Context(), "rendered", "rows", cfg.Height, "bytes", len(payload))
+
+	httpx.WriteJSON(w, http.StatusOK, renderResponse{Payload: payload})
+}
+
+// renderStrip is renderPhoto for a photobooth strip: taller, and printed
+// without the receipt frame. Only the booth calls it.
+func (a *api) renderStrip(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxStripBody)
+
+	b, cfg, err := doc.ReadStrip(r.Body)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "not a PNG: "+err.Error())
+		return
+	}
+
+	payload := render.RenderStrip(img)
+	a.log.DebugContext(r.Context(), "rendered strip", "rows", cfg.Height, "bytes", len(payload))
 
 	httpx.WriteJSON(w, http.StatusOK, renderResponse{Payload: payload})
 }

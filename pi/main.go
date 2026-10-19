@@ -33,8 +33,9 @@ const (
 	attachWait = 10 * time.Second
 	// The most one job may take, arrival to ack, the attach wait included.
 	jobDeadline = 20 * time.Second
-	// Matches the broker's max_packet_size. A square photo is about 19 KB.
-	maxJob = 32 * 1024
+	// Matches the broker's max_packet_size. A square photo is about 19 KB, a
+	// photobooth strip up to about 66 KB.
+	maxJob = 128 * 1024
 )
 
 // What an ack says. Codes rather than prose: the dispatcher switches on them.

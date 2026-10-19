@@ -83,6 +83,40 @@ func TestRenderPhotoRejects(t *testing.T) {
 	}
 }
 
+// The strip route takes the booth's long strips, and only it: the photo
+// route keeps the public site's square limit (TestRenderPhotoRejects).
+func TestRenderStripEndpoint(t *testing.T) {
+	rec := postAs(t, "/internal/render/strip", "image/png", bytes.NewReader(pngOf(t, doc.PhotoWidth, doc.StripMaxRows)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
+	}
+
+	var out renderResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	if n := bytes.Count(out.Payload, []byte{0x1d, 'v', '0'}); n != 1 {
+		t.Errorf("raster command appears %d times, want 1", n)
+	}
+}
+
+func TestRenderStripRejects(t *testing.T) {
+	tests := map[string][]byte{
+		"wrong width": pngOf(t, doc.PhotoWidth-1, 10),
+		"too tall":    pngOf(t, doc.PhotoWidth, doc.StripMaxRows+1),
+		"not a png":   []byte("hello"),
+	}
+
+	for name, body := range tests {
+		t.Run(name, func(t *testing.T) {
+			if rec := postAs(t, "/internal/render/strip", "image/png", bytes.NewReader(body)); rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400; body %s", rec.Code, rec.Body)
+			}
+		})
+	}
+}
+
 func TestRenderRefusesOtherContentTypes(t *testing.T) {
 	if rec := postAs(t, "/internal/render", "text/plain", strings.NewReader("hi")); rec.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("status = %d, want 415", rec.Code)

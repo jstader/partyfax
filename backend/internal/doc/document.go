@@ -15,6 +15,10 @@ const (
 	// PhotoMaxRows caps a photo's height in dots. A square: 48 mm of paper,
 	// about 18 KB of raster.
 	PhotoMaxRows = 384
+	// StripMaxRows caps a photobooth strip: four frames, a header and a
+	// footer, about 17 cm of paper and 66 KB of raster. Only the booth takes
+	// these; the public site stays at PhotoMaxRows.
+	StripMaxRows = 1400
 )
 
 // Limits is the paper a document must fit. A struct rather than the constants
