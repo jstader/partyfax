@@ -19,8 +19,9 @@ export function fit(srcW, srcH, w, maxH) {
    edges that shrinking and the head both blur, and Atkinson's dither, which
    lets a quarter of the error go, keeps highlights and shadows clean where
    Floyd-Steinberg's lone dots smear. Each is an option so the calibration
-   page can print them side by side. */
-export const DEFAULTS = { algorithm: 'fs', gamma: 1, sharpen: 0, serpentine: false };
+   page can print them side by side. The defaults are what won on this
+   printer's paper (calibration, 2026-10-19): Atkinson, gamma 1.8, sharpened. */
+export const DEFAULTS = { algorithm: 'atkinson', gamma: 1.8, sharpen: 0.8, serpentine: false };
 
 /* Luminance, levels, sharpening, tone, then error diffusion. */
 export function dither(rgba, w, h, opts = {}) {

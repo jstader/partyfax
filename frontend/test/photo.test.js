@@ -75,9 +75,9 @@ test('every algorithm keeps flat white white and flat black black', () => {
 // white, and a tone curve above 1 makes it lighter, never darker.
 test('a ramp dithers to about half white, and gamma lightens it', () => {
   const w = 256, h = 32, px = grey(w, h, (x) => x);
-  const plain = ones(dither(px.slice(), w, h)) / (w * h);
-  const atk = ones(dither(px.slice(), w, h, { algorithm: 'atkinson' })) / (w * h);
-  const light = ones(dither(px.slice(), w, h, { algorithm: 'atkinson', gamma: 1.8 })) / (w * h);
+  const plain = ones(dither(px.slice(), w, h, { algorithm: 'fs', gamma: 1, sharpen: 0 })) / (w * h);
+  const atk = ones(dither(px.slice(), w, h, { algorithm: 'atkinson', gamma: 1, sharpen: 0 })) / (w * h);
+  const light = ones(dither(px.slice(), w, h, { algorithm: 'atkinson', gamma: 1.8, sharpen: 0 })) / (w * h);
   assert.ok(Math.abs(plain - 0.5) < 0.03, `fs ${plain}`);
   assert.ok(Math.abs(atk - 0.5) < 0.06, `atkinson ${atk}`);
   assert.ok(light > atk + 0.05, `gamma 1.8 ${light} vs ${atk}`);

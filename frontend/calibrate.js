@@ -7,15 +7,15 @@
    what it can and waits out the limit for the rest by itself. */
 
 // Versioned, so a browser holding an older copy cannot pair it with this page.
-import { fit, dither, unpack, encodePNG } from './js/photo.js?v=3';
-import { shrink, decode } from './js/scale.js?v=3';
+import { fit, dither, unpack, encodePNG } from './js/photo.js?v=4';
+import { shrink, decode } from './js/scale.js?v=4';
 
 export const VARIANTS = [
-  { label: 'Floyd-Steinberg (as before)', algorithm: 'fs' },
+  { label: 'Floyd-Steinberg (original)', algorithm: 'fs', gamma: 1, sharpen: 0 },
   { label: 'F-S serpentine, gamma 1.5, sharp', algorithm: 'fs', serpentine: true, gamma: 1.5, sharpen: 0.8 },
   { label: 'Atkinson, gamma 1.0, sharp', algorithm: 'atkinson', gamma: 1.0, sharpen: 0.8 },
   { label: 'Atkinson, gamma 1.4, sharp', algorithm: 'atkinson', gamma: 1.4, sharpen: 0.8 },
-  { label: 'Atkinson, gamma 1.8, sharp', algorithm: 'atkinson', gamma: 1.8, sharpen: 0.8 },
+  { label: 'Atkinson, gamma 1.8, sharp (default)', algorithm: 'atkinson', gamma: 1.8, sharpen: 0.8 },
   { label: 'Atkinson, gamma 2.2, sharp', algorithm: 'atkinson', gamma: 2.2, sharpen: 0.8 },
 ];
 
