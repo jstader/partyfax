@@ -5,7 +5,7 @@
 import { rowsOf, longestPrefix } from './js/paper.js';
 import { TOOLS, toolsIn, effective, reconcile, rangeHas, runs, toDocument } from './js/styles.js';
 import { fit, dither, unpack, encodePNG } from './js/photo.js';
-import { shrink } from './js/scale.js';
+import { shrink, decode } from './js/scale.js?v=3';
 import { sheet } from './js/gesture.js';
 
 /* Read from CSS so --cols and --rows stay the single source of truth. */
@@ -249,18 +249,6 @@ async function loadPhoto(blob) {
 
   const bits = dither(rgba, PHOTO_W, h);
   setPhoto({ bits, h });
-}
-
-/* createImageBitmap honours the camera's orientation tag and is fast;
-   an <img> is the fallback where it is missing. */
-function decode(blob) {
-  if (window.createImageBitmap) return createImageBitmap(blob);
-  return new Promise((ok, bad) => {
-    const url = URL.createObjectURL(blob), img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); ok(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('decode')); };
-    img.src = url;
-  });
 }
 
 /* Put a picture on the paper, or take it off. The words stay in the hidden

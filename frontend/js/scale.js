@@ -27,3 +27,19 @@ function canvas(w, h) {
   ctx.imageSmoothingQuality = 'high';
   return c;
 }
+
+/* A picture file as something drawImage takes. createImageBitmap honours the
+   camera's orientation tag and is fast, but some browsers that have it
+   cannot decode every format they show -- an iPhone's HEIC -- so a failure
+   falls back to an <img>, which can. */
+export async function decode(blob) {
+  if (window.createImageBitmap) {
+    try { return await createImageBitmap(blob); } catch { /* try an <img> */ }
+  }
+  return new Promise((ok, bad) => {
+    const url = URL.createObjectURL(blob), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); ok(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('decode')); };
+    img.src = url;
+  });
+}

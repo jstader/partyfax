@@ -6,8 +6,9 @@
    The site allows three prints per ten minutes per address, so the queue
    prints what it can and waits out the limit for the rest by itself. */
 
-import { fit, dither, unpack, encodePNG } from './js/photo.js';
-import { shrink } from './js/scale.js';
+// Versioned, so a browser holding an older copy cannot pair it with this page.
+import { fit, dither, unpack, encodePNG } from './js/photo.js?v=3';
+import { shrink, decode } from './js/scale.js?v=3';
 
 export const VARIANTS = [
   { label: 'Floyd-Steinberg (as before)', algorithm: 'fs' },
@@ -33,7 +34,13 @@ $('file').addEventListener('change', async () => {
   const f = $('file').files[0];
   if (!f) return;
   status.textContent = 'working...';
-  const bmp = await createImageBitmap(f);
+  let bmp;
+  try {
+    bmp = await decode(f);
+  } catch {
+    status.textContent = `could not read that picture (${f.type || 'unknown type'}); try a JPEG or PNG`;
+    return;
+  }
   const { sy, sh, h } = fit(bmp.width, bmp.height, W, PHOTO_MAX);
   const photo = shrink(bmp, 0, sy, bmp.width, sh, W, h);
   if (bmp.close) bmp.close();
