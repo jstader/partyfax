@@ -21,7 +21,14 @@ after=$(git rev-parse HEAD)
 export BUILDX_NO_DEFAULT_ATTESTATIONS=1
 
 # --pull refreshes the base images; unchanged layers come from the cache.
-docker compose build --pull
+# One image at a time: the container has 1 GB, and Caddy's and the Go
+# services' compiles side by side run it out ("resource temporarily
+# unavailable").
+buildable=$(docker compose config --format json |
+	python3 -c 'import json, sys; print(" ".join(n for n, s in json.load(sys.stdin)["services"].items() if s.get("build")))')
+for svc in $buildable; do
+	docker compose build --pull "$svc"
+done
 docker compose pull --quiet --ignore-buildable
 docker compose up -d --remove-orphans
 
