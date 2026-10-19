@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>FAX - photo calibration</title>
+<link rel="stylesheet" href="/calibrate.css">
+</head>
+<body>
+<main>
+  <h1>Photo calibration</h1>
+  <p>Choose a photo with a face and some shadows. This prints one receipt with
+  six numbered versions of it, each with a black-to-white ramp underneath.
+  Pick the number that looks best on paper.</p>
+  <p><input type="file" id="file" accept="image/*"></p>
+  <canvas id="sheet" width="384" height="0"></canvas>
+  <ol id="legend"></ol>
+  <p><button id="send" disabled>Print the calibration receipt</button></p>
+  <p id="status"></p>
+</main>
+<script type="module" src="/calibrate.js"></script>
+</body>
+</html>

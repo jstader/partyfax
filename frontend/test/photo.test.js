@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inflateSync } from 'node:zlib';
-import { fit, dither, unpack, encodePNG, crc32 } from '../js/photo.js';
+import { fit, dither, unpack, encodePNG, crc32, tone, unsharp, levels } from '../js/photo.js';
 
 test('crc32 matches the standard check value', () => {
   assert.equal(crc32(new TextEncoder().encode('123456789')), 0xcbf43926);
@@ -54,4 +54,55 @@ test('dither keeps a flat picture\'s tone', () => {
 test('unpack is the inverse of the packing', () => {
   const rgba = unpack(new Uint8Array([0b10100000]), 3, 1, new Uint8ClampedArray(12));
   assert.deepEqual([...rgba], [255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255]);
+});
+
+const ones = (bits) => bits.reduce((n, b) => { for (; b; b &= b - 1) n++; return n; }, 0);
+const grey = (w, h, f) => {
+  const px = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) { px.fill(f(i % w, i / w | 0), i * 4, i * 4 + 3); px[i * 4 + 3] = 255; }
+  return px;
+};
+
+test('every algorithm keeps flat white white and flat black black', () => {
+  const w = 16, h = 4;
+  for (const opts of [{ algorithm: 'fs', serpentine: true }, { algorithm: 'atkinson' }, { algorithm: 'atkinson', gamma: 2, sharpen: 1 }]) {
+    assert.ok(dither(grey(w, h, () => 255), w, h, opts).every(b => b === 0xff), `white, ${JSON.stringify(opts)}`);
+    assert.ok(dither(grey(w, h, () => 0), w, h, opts).every(b => b === 0), `black, ${JSON.stringify(opts)}`);
+  }
+});
+
+// A ramp, so levels has a range and leaves it alone: about half the dots
+// white, and a tone curve above 1 makes it lighter, never darker.
+test('a ramp dithers to about half white, and gamma lightens it', () => {
+  const w = 256, h = 32, px = grey(w, h, (x) => x);
+  const plain = ones(dither(px.slice(), w, h)) / (w * h);
+  const atk = ones(dither(px.slice(), w, h, { algorithm: 'atkinson' })) / (w * h);
+  const light = ones(dither(px.slice(), w, h, { algorithm: 'atkinson', gamma: 1.8 })) / (w * h);
+  assert.ok(Math.abs(plain - 0.5) < 0.03, `fs ${plain}`);
+  assert.ok(Math.abs(atk - 0.5) < 0.06, `atkinson ${atk}`);
+  assert.ok(light > atk + 0.05, `gamma 1.8 ${light} vs ${atk}`);
+});
+
+test('tone keeps the ends and lifts the middle', () => {
+  const lum = Float32Array.from([0, 128, 255]);
+  tone(lum, 2);
+  assert.equal(lum[0], 0);
+  assert.ok(lum[1] > 170 && lum[1] < 190, `middle ${lum[1]}`);
+  assert.equal(lum[2], 255);
+});
+
+test('unsharp leaves a flat picture alone and steepens an edge', () => {
+  const flat = new Float32Array(9).fill(100);
+  unsharp(flat, 3, 3, 1);
+  assert.ok(flat.every(v => Math.abs(v - 100) < 1e-4));
+
+  const edge = Float32Array.from([50, 50, 200, 200, 50, 50, 200, 200]);
+  unsharp(edge, 4, 2, 1);
+  assert.ok(edge[1] < 50 && edge[2] > 200, `edge ${[...edge.slice(0, 4)]}`);
+});
+
+test('levels stretches the range to black and white', () => {
+  const lum = Float32Array.from({ length: 1000 }, (_, i) => 100 + (i % 51));
+  levels(lum);
+  assert.ok(Math.min(...lum) === 0 && Math.max(...lum) === 255);
 });

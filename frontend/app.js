@@ -5,6 +5,7 @@
 import { rowsOf, longestPrefix } from './js/paper.js';
 import { TOOLS, toolsIn, effective, reconcile, rangeHas, runs, toDocument } from './js/styles.js';
 import { fit, dither, unpack, encodePNG } from './js/photo.js';
+import { shrink } from './js/scale.js';
 import { sheet } from './js/gesture.js';
 
 /* Read from CSS so --cols and --rows stay the single source of truth. */
@@ -243,13 +244,10 @@ async function loadPhoto(blob) {
 
   const { sy, sh, h } = fit(bmp.width, bmp.height, PHOTO_W, PHOTO_H);
 
-  const work = document.createElement('canvas');
-  work.width = PHOTO_W; work.height = h;
-  const ctx = work.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(bmp, 0, sy, bmp.width, sh, 0, 0, PHOTO_W, h);
+  const rgba = shrink(bmp, 0, sy, bmp.width, sh, PHOTO_W, h);
   if (bmp.close) bmp.close();
 
-  const bits = dither(ctx.getImageData(0, 0, PHOTO_W, h).data, PHOTO_W, h);
+  const bits = dither(rgba, PHOTO_W, h);
   setPhoto({ bits, h });
 }
 
