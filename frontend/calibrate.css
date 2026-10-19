@@ -15,12 +15,7 @@ h1 {
   font-size: 20px;
 }
 
-#sheets {
-  list-style: none;
-  padding: 0;
-}
-
-#sheets li {
+#sheets > div {
   margin: 0 0 20px;
 }
 

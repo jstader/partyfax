@@ -133,7 +133,7 @@ function paste(ctx, bits, w, h, x, y) {
 
 /* The preview for one variant, with its tick box and progress note. */
 function row(n, label, bits, h) {
-  const li = document.createElement('li');
+  const li = document.createElement('div');
   const head = document.createElement('label');
   const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: true });
   head.append(box, ` ${n}. ${label} `, Object.assign(document.createElement('span'), { className: 'note' }));
