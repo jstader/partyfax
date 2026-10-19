@@ -115,7 +115,12 @@ the printer is fine.
 ## Updating
 
 Run the same install line again. It downloads the latest agent built from
-`main`, keeps your password, and restarts the service. The first log line
+`main`, keeps your password, and restarts the service.
+
+The installer also asks, once, for a **Cloudflare Access service token**
+(Client ID and Client Secret). That lets the Pi through when Access guards
+the broker; see "Cloudflare Access on /mqtt" in `deploy/README.md`. Press
+Enter to skip it if Access isn't set up. The first log line
 after a restart shows the version (the commit it was built from).
 
 ## When something's wrong

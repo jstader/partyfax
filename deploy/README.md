@@ -50,6 +50,34 @@ Caddy trusts `Cf-Connecting-IP` from private addresses only, which here means
 cloudflared. So rate limits, `FAX_BANNED` and the gateway's logs all see the
 visitor, not the tunnel.
 
+### Cloudflare Access on /mqtt
+
+The site is public, but the broker shouldn't be: only the Pi has any business
+on `/mqtt`. A Cloudflare Access application covering just that path makes
+Cloudflare refuse every connection that doesn't carry the Pi's service token,
+before it reaches the tunnel. That keeps strangers away from Mosquitto
+entirely, and they can't fill its connection limit to knock the printer
+offline.
+
+In Cloudflare Zero Trust:
+
+1. **Access → Service Auth → Service Tokens → Create Service Token.** Name it
+   `partyfax-pi`. A duration of a year or more is fine; set a reminder,
+   because when it expires the printer goes offline. Copy the **Client ID**
+   and **Client Secret**. The secret is shown only once.
+2. **Give the token to the Pi first,** before Access is turned on, so the Pi
+   never loses its connection. Run the installer on the Pi again and paste
+   both when it asks (`pi/README.md`, "Updating"). If you skipped that
+   question before, add the two `PARTYFAX_CF_ACCESS_*` lines to
+   `/etc/partyfax/agent.env` instead and `sudo systemctl restart partyfax-agent`.
+3. **Access → Applications → Add an application → Self-hosted.** Name it
+   `partyfax mqtt`. Domain `partyfax.nilanet.live`, path `mqtt`. Only that
+   path: an application on the bare domain would lock the public site too.
+4. Add one policy: action **Service Auth**, include **Service Token** →
+   `partyfax-pi`. No other policies.
+5. Save. Check that `https://partyfax.nilanet.live/` still loads in a private
+   window and the printer still shows online.
+
 ## Every deploy
 
 ```sh

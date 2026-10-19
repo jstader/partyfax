@@ -14,6 +14,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -52,6 +53,9 @@ var version = "dev"
 
 type config struct {
 	url, user, pass, device, printer string
+	// A Cloudflare Access service token. Access sits in front of /mqtt so
+	// that only this agent reaches the broker; both empty means no Access.
+	accessID, accessSecret string
 }
 
 type job struct {
@@ -69,6 +73,9 @@ func main() {
 		pass:    os.Getenv("PARTYFAX_MQTT_PASS"),
 		device:  env("PARTYFAX_DEVICE_ID", "printer-1"),
 		printer: env("PARTYFAX_PRINTER", "/dev/usb/lp0"),
+
+		accessID:     os.Getenv("PARTYFAX_CF_ACCESS_CLIENT_ID"),
+		accessSecret: os.Getenv("PARTYFAX_CF_ACCESS_CLIENT_SECRET"),
 	}
 
 	if *selftest {
@@ -154,6 +161,15 @@ func run(ctx context.Context, cfg config) {
 			c.Publish(stateTopic, 1, true, online).Wait()
 			logger.Info("connected, subscribed, announced online")
 		})
+
+	// Sent on the websocket upgrade, which is the request Access checks.
+	if cfg.accessID != "" && cfg.accessSecret != "" {
+		opts.SetHTTPHeaders(http.Header{
+			"CF-Access-Client-Id":     {cfg.accessID},
+			"CF-Access-Client-Secret": {cfg.accessSecret},
+		})
+		logger.Info("using a Cloudflare Access service token")
+	}
 
 	client := mqtt.NewClient(opts)
 	client.Connect()

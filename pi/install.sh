@@ -53,6 +53,33 @@ else
 	echo "Saved to $ENV_FILE."
 fi
 
+say "Cloudflare Access token"
+# Optional. Access in front of /mqtt keeps everyone but this Pi away from
+# the broker. Asked once: a blank answer is remembered, so later runs (and
+# updates) do not ask again. To add it later, edit $ENV_FILE.
+if grep -q 'CF_ACCESS_CLIENT_ID' "$ENV_FILE"; then
+	echo "Already decided in $ENV_FILE; keeping it."
+else
+	id=${PARTYFAX_CF_ACCESS_CLIENT_ID:-}
+	secret=${PARTYFAX_CF_ACCESS_CLIENT_SECRET:-}
+	if [ -z "$id" ]; then
+		read -r -p "Access service token Client ID (Enter to skip): " id </dev/tty
+	fi
+	if [ -n "$id" ] && [ -z "$secret" ]; then
+		while [ -z "$secret" ]; do
+			read -r -s -p "Access service token Client Secret: " secret </dev/tty
+			echo
+		done
+	fi
+	if [ -n "$id" ]; then
+		printf 'PARTYFAX_CF_ACCESS_CLIENT_ID=%s\nPARTYFAX_CF_ACCESS_CLIENT_SECRET=%s\n' "$id" "$secret" >>"$ENV_FILE"
+		echo "Saved to $ENV_FILE."
+	else
+		printf '# PARTYFAX_CF_ACCESS_CLIENT_ID=\n# PARTYFAX_CF_ACCESS_CLIENT_SECRET=\n' >>"$ENV_FILE"
+		echo "Skipped."
+	fi
+fi
+
 say "Turning off Wi-Fi power saving"
 # The Zero W's power saving drops idle connections, and the agent's is idle
 # between prints. Applies from the next Wi-Fi connect (or reboot).
