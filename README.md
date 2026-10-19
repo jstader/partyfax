@@ -85,10 +85,10 @@ gets its answer only after the printer has acked the job.
 
 ## Hardware
 
-- **Thermal receipt printer:** 58 mm, ESC/POS over USB.
+- **Thermal receipt printer:** an EM5822H embedded module, 58 mm paper, 384
+  dots a line, ESC/POS over USB, run at 7.7 V.
 - **Raspberry Pi Zero W v1.1**, running Raspberry Pi OS Lite (32-bit), with
-  the printer on the inner micro-USB port through an OTG adapter. It also has
-  a camera, which isn't used yet. A photobooth mode is planned.
+  the printer on the inner micro-USB port through an OTG adapter.
 - **Server:** an unprivileged LXC on my Proxmox host, running the Docker
   Compose stack.
 

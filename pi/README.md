@@ -153,5 +153,3 @@ apart. The timeouts (10 s for the printer to appear,
 Settings live in `/etc/partyfax/agent.env`. Only the password is required;
 see `agent.env.example` for the rest. To build the binary yourself instead
 of downloading it, run `./pi/build.sh` on any machine with Go or Docker.
-
-The camera isn't used yet.
