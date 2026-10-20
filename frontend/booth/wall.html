@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Photobooth wall</title>
-<link rel="stylesheet" href="/booth/booth.css?v=4">
+<link rel="stylesheet" href="/booth/booth.css?v=5">
 </head>
 <body class="wall">
 <header>
@@ -13,8 +13,21 @@
   <a href="/">Back to the booth</a>
 </header>
 <p id="note" class="note"></p>
+
+<!-- Computers: every strip in a grid. -->
 <ul id="strips" class="strips"></ul>
 
-<script type="module" src="/booth/wall.js?v=5"></script>
+<!-- Phones: one strip at a time, swiped through. -->
+<section id="deck-view" class="deck-view" hidden>
+  <div id="deck" class="deck"></div>
+  <div class="deck-controls">
+    <button id="prev" class="quiet" aria-label="Previous strip">&larr;</button>
+    <span id="pos" class="note"></span>
+    <button id="next" class="quiet" aria-label="Next strip">&rarr;</button>
+  </div>
+  <p class="note hint">Swipe to browse, tap a strip to open it</p>
+</section>
+
+<script type="module" src="/booth/wall.js?v=6"></script>
 </body>
 </html>

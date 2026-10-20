@@ -305,6 +305,10 @@ body.wall .note {
   max-width: 300px;
 }
 
+.detail .note {
+  text-align: center;
+}
+
 button.secondary {
   background: transparent;
   color: var(--fg);
@@ -313,6 +317,82 @@ button.secondary {
 
 .strips a {
   display: block;
+}
+
+/* ---- the wall on a phone: a deck of whole strips ---- */
+
+.deck-view {
+  padding: 0 16px 24px;
+  text-align: center;
+}
+
+.deck {
+  position: relative;
+  /* The whole strip on screen: the deck takes what the header and the
+     controls leave. svh, so a phone's sliding address bar doesn't crop it. */
+  height: calc(100svh - 150px);
+  min-height: 320px;
+  margin: 8px auto 0;
+  /* Horizontal drags are ours; vertical ones still scroll the page. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+  cursor: grab;
+}
+
+.card.under {
+  transform: scale(0.92);
+  opacity: 0.5;
+}
+
+.card img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.deck-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  margin-top: 10px;
+}
+
+.deck-controls button {
+  font-size: 24px;
+  text-decoration: none;
+  padding: 4px 12px;
+}
+
+.deck-view .hint {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  body.wall header {
+    padding-top: 12px;
+  }
+  body.wall header h1 {
+    font-size: 22px;
+    margin: 0;
+  }
 }
 
 /* ---- admin ---- */
