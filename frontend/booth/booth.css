@@ -346,8 +346,67 @@ body.wall .note {
   min-height: 420px;
 }
 
-.detail > p:first-child {
-  margin: 0 0 8px;
+/* The bar across the top: a round back button, then the two actions as
+   pills of the same height, each with an icon. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 12px;
+  border: 2px solid var(--fg);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.tool svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tool.back {
+  flex: none;
+  width: 42px;
+  padding: 0;
+  margin-right: auto;
+}
+
+.tool.back svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tool.primary {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+/* The smallest phones: the icons go, the words stay. */
+@media (max-width: 360px) {
+  .tool:not(.back) svg {
+    display: none;
+  }
+  .tool {
+    padding: 0 11px;
+  }
 }
 
 .strip-box {
@@ -356,6 +415,7 @@ body.wall .note {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-top: 14px;
 }
 
 .detail .strip {
@@ -365,32 +425,13 @@ body.wall .note {
   margin: 0;
 }
 
-.detail .actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.detail .actions button.big {
-  flex: 1;
-  margin: 0;
-  padding: 14px 8px;
-  font-size: 16px;
-}
-
 .detail .note {
   text-align: center;
-  margin: 8px 0 0;
+  margin: 10px 0 0;
 }
 
 .detail .note:empty {
   display: none;
-}
-
-button.secondary {
-  background: transparent;
-  color: var(--fg);
-  border: 2px solid var(--fg);
 }
 
 .strips a {
