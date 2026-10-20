@@ -106,6 +106,8 @@ function edit(e) {
   for (const n of $('f-icons').querySelectorAll('input')) {
     n.value = e.icons.filter((i) => i === n.dataset.icon).length;
   }
+  $('f-count-first').value = e.countFirst || 5;
+  $('f-count-next').value = e.countNext || 3;
   $('f-active').checked = e.active;
   $('f-wall').checked = e.wall;
 
@@ -123,6 +125,8 @@ function formEvent() {
     // Each icon as many times as its count, in the picker's order.
     icons: [...$('f-icons').querySelectorAll('input')]
       .flatMap((n) => Array(Math.max(0, Math.min(MAX_ICONS, n.valueAsNumber || 0))).fill(n.dataset.icon)),
+    countFirst: $('f-count-first').valueAsNumber || 5,
+    countNext: $('f-count-next').valueAsNumber || 3,
     active: $('f-active').checked,
     wall: $('f-wall').checked,
   };
@@ -152,7 +156,8 @@ $('form').addEventListener('submit', async (ev) => {
 });
 
 $('new').addEventListener('click', () => edit({
-  id: null, title: '', subtitle: '', font: 'display', frame: 'film', icons: [], active: true, wall: true,
+  id: null, title: '', subtitle: '', font: 'display', frame: 'film', icons: [],
+  countFirst: 5, countNext: 3, active: true, wall: true,
 }));
 $('back').addEventListener('click', () => { location.hash = ''; });
 
@@ -270,6 +275,21 @@ $('test').addEventListener('click', async () => {
 
 /* ---- strips --------------------------------------------------------------------------- */
 
+// Every strip in one zip, enlarged for a photo album. Fetched rather than
+// linked, so it waits for the zip and can say if something went wrong.
+$('download-all').addEventListener('click', async () => {
+  note('Making the zip...');
+  try {
+    const blob = await call('GET', `${API}/${current.id}/strips.zip`);
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: `${current.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photobooth'}-strips.zip`,
+    });
+    a.click();
+    note('Downloaded.');
+  } catch (e) { note(`Download failed: ${e.message}`); }
+});
+
 async function loadStrips() {
   const list = $('strips');
   list.replaceChildren();
@@ -291,7 +311,15 @@ async function loadStrips() {
         loadStrips();
       } catch (e) { note(e.message); }
     });
-    li.append(img, btn);
+    const del = Object.assign(document.createElement('button'), { textContent: 'Delete', className: 'quiet' });
+    del.addEventListener('click', async () => {
+      if (!confirm('Delete this strip for good? It can\'t be undone.')) return;
+      try {
+        await call('DELETE', `${API}/${current.id}/strips/${s.id}`);
+        loadStrips();
+      } catch (e) { note(e.message); }
+    });
+    li.append(img, btn, del);
     list.append(li);
     call('GET', `${API}/${current.id}/strips/${s.id}`).then((blob) => { img.src = URL.createObjectURL(blob); });
   }

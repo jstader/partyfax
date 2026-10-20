@@ -2,13 +2,15 @@
    one strip on paper. */
 
 import { compose, iconRects, loadFont, sampleShots } from './js/strip.js?v=2';
-import { savedCode, saveCode, forgetCode, join, printStrip } from './js/api.js?v=1';
+import { savedCode, saveCode, forgetCode, join, printStrip } from './js/api.js?v=2';
 import { unpack, encodePNG } from '../js/photo.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 
-const FIRST_COUNT = 5;   // seconds before the first photo
-const NEXT_COUNT = 3;    // and between the rest
+// Seconds before the first photo and between the rest, if the event
+// doesn't say (the host sets them per event in the admin page).
+const FIRST_COUNT = 5;
+const NEXT_COUNT = 3;
 const SHOTS = 4;
 const BUSY_RETRY_MS = 3000;
 const BUSY_GIVE_UP_MS = 90_000;
@@ -112,7 +114,7 @@ async function session() {
 
   const shots = [];
   for (let i = 0; i < SHOTS; i++) {
-    await countdown(i === 0 ? FIRST_COUNT : NEXT_COUNT, `${i + 1} of ${SHOTS}`);
+    await countdown(i === 0 ? theme.countFirst || FIRST_COUNT : theme.countNext || NEXT_COUNT, `${i + 1} of ${SHOTS}`);
     shots.push(snap(video));
     flash();
     thumb(shots[i]);

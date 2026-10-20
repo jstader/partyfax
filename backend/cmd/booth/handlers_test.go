@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -257,5 +258,102 @@ func TestTestPrintIsNotKept(t *testing.T) {
 	}
 	if n := len(g.api.store.Strips(g.ev.ID, true)); n != 0 {
 		t.Errorf("test print was kept (%d strips)", n)
+	}
+}
+
+func TestReprintPrintsTheStoredStripWithoutKeepingItAgain(t *testing.T) {
+	g := newRig(t, nil)
+	body := stripPNG(t, doc.PhotoWidth, 50)
+	g.do("POST", "/api/booth/print", g.ev.Code, bytes.NewReader(body))
+	id := g.d.ids[0]
+
+	rec := g.do("POST", "/api/booth/reprint", g.ev.Code, strings.NewReader(`{"id":"`+id+`"}`))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reprint = %d %s", rec.Code, rec.Body)
+	}
+	if len(g.d.ids) != 2 || !bytes.Equal(g.r.got, body) {
+		t.Error("reprint didn't send the stored strip to the printer")
+	}
+	if n := len(g.api.store.Strips(g.ev.ID, true)); n != 1 {
+		t.Errorf("%d strips kept, want 1", n)
+	}
+
+	// Not someone else's strip, not a hidden one, not without the code.
+	if rec := g.do("POST", "/api/booth/reprint", g.ev.Code, strings.NewReader(`{"id":"8f0e0d4a-1b2c-4d5e-8f90-a1b2c3d4e5f6"}`)); rec.Code != http.StatusNotFound {
+		t.Errorf("unknown strip = %d, want 404", rec.Code)
+	}
+	if rec := g.do("POST", "/api/booth/reprint", "", strings.NewReader(`{"id":"`+id+`"}`)); rec.Code != http.StatusNotFound {
+		t.Errorf("no code = %d, want 404", rec.Code)
+	}
+	g.api.store.SetHidden(g.ev.ID, id, true)
+	if rec := g.do("POST", "/api/booth/reprint", g.ev.Code, strings.NewReader(`{"id":"`+id+`"}`)); rec.Code != http.StatusNotFound {
+		t.Errorf("hidden strip = %d, want 404", rec.Code)
+	}
+}
+
+func adminRig(t *testing.T) (*rig, string) {
+	t.Helper()
+	g := newRig(t, nil)
+	f := newFakeAccess(t)
+	g.api.access = f.access(now)
+	return g, f.token(t, map[string]any{"alg": "RS256", "kid": "k1"}, goodClaims())
+}
+
+func TestAdminDeletesAStrip(t *testing.T) {
+	g, tok := adminRig(t)
+	g.do("POST", "/api/booth/print", g.ev.Code, bytes.NewReader(stripPNG(t, doc.PhotoWidth, 10)))
+	id := g.d.ids[0]
+
+	rec := g.do("DELETE", "/api/booth/admin/events/"+g.ev.ID+"/strips/"+id, "", nil, accessHeader, tok)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("delete = %d %s", rec.Code, rec.Body)
+	}
+	if n := len(g.api.store.Strips(g.ev.ID, true)); n != 0 {
+		t.Errorf("%d strips left", n)
+	}
+	if _, err := g.api.store.StripPNG(g.ev.ID, id, true); err == nil {
+		t.Error("picture still served")
+	}
+	if rec := g.do("DELETE", "/api/booth/admin/events/"+g.ev.ID+"/strips/"+id, "", nil, accessHeader, tok); rec.Code != http.StatusNotFound {
+		t.Errorf("second delete = %d, want 404", rec.Code)
+	}
+}
+
+func TestAdminZipHasEveryStripEnlarged(t *testing.T) {
+	g, tok := adminRig(t)
+	for range 2 {
+		g.do("POST", "/api/booth/print", g.ev.Code, bytes.NewReader(stripPNG(t, doc.PhotoWidth, 20)))
+	}
+	g.api.store.SetHidden(g.ev.ID, g.d.ids[0], true)
+
+	rec := g.do("GET", "/api/booth/admin/events/"+g.ev.ID+"/strips.zip", "", nil, accessHeader, tok)
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/zip" {
+		t.Fatalf("zip = %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	if cd := rec.Header().Get("Content-Disposition"); !strings.Contains(cd, `"john-s-40th-strips.zip"`) {
+		t.Errorf("Content-Disposition = %s", cd)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(zr.File) != 2 {
+		t.Fatalf("%d files, want both strips (hidden included)", len(zr.File))
+	}
+	f, _ := zr.File[0].Open()
+	cfg, err := png.DecodeConfig(f)
+	if err != nil || cfg.Width != doc.PhotoWidth*albumScale || cfg.Height != 20*albumScale {
+		t.Errorf("enlarged strip is %dx%d (%v), want %dx%d", cfg.Width, cfg.Height, err, doc.PhotoWidth*albumScale, 20*albumScale)
+	}
+}
+
+func TestJoinCarriesTheCountdowns(t *testing.T) {
+	g := newRig(t, func(e *Event) { e.CountFirst, e.CountNext = 7, 4 })
+	rec := g.do("POST", "/api/booth/join", "", strings.NewReader(`{"code":"`+g.ev.Code+`"}`))
+	var th Theme
+	json.Unmarshal(rec.Body.Bytes(), &th)
+	if th.CountFirst != 7 || th.CountNext != 4 {
+		t.Errorf("theme countdowns = %d, %d; want 7, 4", th.CountFirst, th.CountNext)
 	}
 }

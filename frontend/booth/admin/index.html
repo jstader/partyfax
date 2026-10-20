@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Photobooth admin</title>
-<link rel="stylesheet" href="/booth/booth.css?v=2">
+<link rel="stylesheet" href="/booth/booth.css?v=3">
 </head>
 <body class="admin">
 <main>
@@ -31,6 +31,11 @@
         <select id="f-frame"></select>
         <label>Icons: how many of each, up to 6 in all</label>
         <div id="f-icons" class="icon-picks"></div>
+        <label>Countdown, in seconds</label>
+        <div class="toggles">
+          <label><input id="f-count-first" type="number" min="1" max="15" class="icon-count"> before the first photo</label>
+          <label><input id="f-count-next" type="number" min="1" max="15" class="icon-count"> between the others</label>
+        </div>
         <div class="toggles">
           <label><input id="f-active" type="checkbox"> Open (guests can print)</label>
           <label><input id="f-wall" type="checkbox"> Wall on</label>
@@ -67,6 +72,7 @@
     </div>
 
     <h2>Strips</h2>
+    <p><button id="download-all" type="button">Download all (zip)</button></p>
     <ul id="strips" class="admin-strips"></ul>
   </section>
 
@@ -81,6 +87,6 @@
   </div>
 </main>
 <script src="/booth/vendor/qrcode-1.4.4.js"></script>
-<script type="module" src="/booth/admin/admin.js?v=2"></script>
+<script type="module" src="/booth/admin/admin.js?v=3"></script>
 </body>
 </html>

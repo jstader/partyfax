@@ -43,6 +43,20 @@ export async function printStrip(code, png) {
   throw err;
 }
 
+/* Print a strip from the wall again. Same answers as printStrip. */
+export async function reprint(code, id) {
+  const res = await fetch('/api/booth/reprint', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Event-Code': code },
+    body: JSON.stringify({ id }),
+    signal: AbortSignal.timeout(45000),
+  });
+  if (res.ok) return res.json();
+  const err = new Error(await reason(res));
+  err.status = res.status;
+  throw err;
+}
+
 export async function strips(code) {
   const res = await fetch('/api/booth/strips', { headers: { 'X-Event-Code': code }, cache: 'no-store' });
   if (!res.ok) {

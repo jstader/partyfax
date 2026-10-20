@@ -31,6 +31,12 @@ const (
 	maxTitle    = 40
 	maxSubtitle = 60
 	maxIcons    = 6 // an icon may repeat
+
+	// Seconds of countdown before the first photo and between the others.
+	// Zero in a stored event means it predates the setting: the defaults.
+	defaultCountFirst = 5
+	defaultCountNext  = 3
+	maxCount          = 15
 )
 
 // codeAlphabet leaves out 0/O and 1/I/L, which read the same off a sign
@@ -44,31 +50,49 @@ const (
 // Event is one party: its code, its look, and whether it is open. The theme
 // fields are exactly what the strip composer reads.
 type Event struct {
-	ID       string    `json:"id"`
-	Code     string    `json:"code"`
-	Title    string    `json:"title"`
-	Subtitle string    `json:"subtitle"`
-	Font     string    `json:"font"`
-	Frame    string    `json:"frame"`
-	Icons    []string  `json:"icons"`
-	Active   bool      `json:"active"` // guests can join and print
-	Wall     bool      `json:"wall"`   // guests can see the event's strips
-	Created  time.Time `json:"created"`
-}
-
-// Theme is the part of an event a guest's page needs, and nothing more: no
-// id, no code back, no switches.
-type Theme struct {
+	ID       string   `json:"id"`
+	Code     string   `json:"code"`
 	Title    string   `json:"title"`
 	Subtitle string   `json:"subtitle"`
 	Font     string   `json:"font"`
 	Frame    string   `json:"frame"`
 	Icons    []string `json:"icons"`
-	Wall     bool     `json:"wall"`
+	// Countdown seconds: before the first photo, and between the rest.
+	CountFirst int       `json:"countFirst"`
+	CountNext  int       `json:"countNext"`
+	Active     bool      `json:"active"` // guests can join and print
+	Wall       bool      `json:"wall"`   // guests can see the event's strips
+	Created    time.Time `json:"created"`
+}
+
+// Theme is the part of an event a guest's page needs, and nothing more: no
+// id, no code back, no switches.
+type Theme struct {
+	Title      string   `json:"title"`
+	Subtitle   string   `json:"subtitle"`
+	Font       string   `json:"font"`
+	Frame      string   `json:"frame"`
+	Icons      []string `json:"icons"`
+	CountFirst int      `json:"countFirst"`
+	CountNext  int      `json:"countNext"`
+	Wall       bool     `json:"wall"`
 }
 
 func (e Event) Theme() Theme {
-	return Theme{Title: e.Title, Subtitle: e.Subtitle, Font: e.Font, Frame: e.Frame, Icons: e.Icons, Wall: e.Wall}
+	return Theme{Title: e.Title, Subtitle: e.Subtitle, Font: e.Font, Frame: e.Frame, Icons: e.Icons,
+		CountFirst: e.CountFirst, CountNext: e.CountNext, Wall: e.Wall}
+}
+
+// withDefaults fills the countdowns an older event, or an admin who left
+// them blank, didn't set.
+func (e Event) withDefaults() Event {
+	if e.CountFirst == 0 {
+		e.CountFirst = defaultCountFirst
+	}
+	if e.CountNext == 0 {
+		e.CountNext = defaultCountNext
+	}
+	return e
 }
 
 // Validate is the admin's input checked against what the composer can draw.
@@ -94,6 +118,11 @@ func (e Event) Validate() error {
 	for _, i := range e.Icons {
 		if !slices.Contains(icons, i) {
 			return fmt.Errorf("icon %q is not one of %v", i, icons)
+		}
+	}
+	for _, c := range []int{e.CountFirst, e.CountNext} {
+		if c < 1 || c > maxCount {
+			return fmt.Errorf("countdowns are 1 to %d seconds", maxCount)
 		}
 	}
 	return nil
@@ -148,6 +177,9 @@ func OpenStore(dir string) (*Store, error) {
 	default:
 		if err := json.Unmarshal(b, &s.events); err != nil {
 			return nil, fmt.Errorf("%s: %w", s.eventsPath(), err)
+		}
+		for i := range s.events {
+			s.events[i] = s.events[i].withDefaults()
 		}
 	}
 
@@ -211,6 +243,7 @@ func (s *Store) ByCode(typed string) (Event, bool) {
 // Create adds an event with a fresh id and code. The caller's id, code and
 // created time are ignored.
 func (s *Store) Create(e Event) (Event, error) {
+	e = e.withDefaults()
 	if err := e.Validate(); err != nil {
 		return Event{}, invalidEvent{err}
 	}
@@ -238,6 +271,7 @@ func (s *Store) Create(e Event) (Event, error) {
 // Update replaces an event's theme and switches; its id, code and created
 // time stay as they were.
 func (s *Store) Update(id string, e Event) (Event, error) {
+	e = e.withDefaults()
 	if err := e.Validate(); err != nil {
 		return Event{}, invalidEvent{err}
 	}
@@ -359,6 +393,30 @@ func (s *Store) StripPNG(eventID, id string, withHidden bool) ([]byte, error) {
 		return nil, errNoStrip
 	}
 	return os.ReadFile(filepath.Join(s.eventDir(eventID), id+".png"))
+}
+
+// DeleteStrip removes a strip for good: its line and its picture.
+func (s *Store) DeleteStrip(eventID, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	list := s.strips[eventID]
+	i := slices.IndexFunc(list, func(st Strip) bool { return st.ID == id })
+	if i < 0 {
+		return errNoStrip
+	}
+
+	next := slices.Delete(slices.Clone(list), i, i+1)
+	if err := writeStrips(s.stripsList(eventID), next); err != nil {
+		return err
+	}
+	s.strips[eventID] = next
+
+	err := os.Remove(filepath.Join(s.eventDir(eventID), id+".png"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 // SetHidden takes a strip off the event's wall, or puts it back. The list is

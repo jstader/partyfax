@@ -43,6 +43,7 @@ h1 {
 
 .links {
   margin: 14px 0 0;
+  text-align: center;
 }
 
 a {
@@ -90,6 +91,10 @@ button.quiet {
 .pixel-art {
   display: block;
   margin: 12px auto 0;
+  /* Never wider than the card: six icons would otherwise run into the
+     frame. Scaled down, the pixels stay square. */
+  max-width: 100%;
+  height: auto;
   image-rendering: pixelated;
 }
 
@@ -281,6 +286,32 @@ body.wall .note {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
+}
+
+/* One strip, opened from the wall. */
+.detail {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+}
+
+.detail .strip {
+  max-width: 300px;
+}
+
+.button-link {
+  display: block;
+  margin: 12px 0 0;
+  padding: 14px;
+  border: 2px solid var(--fg);
+  border-radius: 12px;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.strips a {
+  display: block;
 }
 
 /* ---- admin ---- */

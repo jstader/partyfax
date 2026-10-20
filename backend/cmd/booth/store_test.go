@@ -140,6 +140,8 @@ func TestValidateRefusesWhatTheComposerCantDraw(t *testing.T) {
 		"font":          func(e *Event) { e.Font = "comic" },
 		"icon":          func(e *Event) { e.Icons = []string{"skull"} },
 		"too many":      func(e *Event) { e.Icons = []string{"heart", "star", "cake", "music", "camera", "bat", "gift"} },
+		"countdown":     func(e *Event) { e.CountFirst = maxCount + 1 },
+		"negative":      func(e *Event) { e.CountNext = -1 },
 	}
 	s, _ := OpenStore(t.TempDir())
 	for name, spoil := range cases {
@@ -217,5 +219,30 @@ func TestATornLastLineIsSkipped(t *testing.T) {
 	}
 	if n := len(again.Strips(e.ID, true)); n != 1 {
 		t.Errorf("%d strips, want 1", n)
+	}
+}
+
+// Events from before the countdown settings, and an admin leaving them
+// blank, get today's timings rather than a zero-second countdown.
+func TestCountdownsDefault(t *testing.T) {
+	s, _ := OpenStore(t.TempDir())
+	e, err := s.Create(theme())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.CountFirst != defaultCountFirst || e.CountNext != defaultCountNext {
+		t.Errorf("new event countdowns %d, %d", e.CountFirst, e.CountNext)
+	}
+
+	old := `[{"id":"0123456789abcdef","code":"ABC234","title":"Old","font":"vt323","frame":"line","icons":[],"active":true}]`
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "events.json"), []byte(old), 0o644)
+	s2, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s2.Event("0123456789abcdef")
+	if got.CountFirst != defaultCountFirst || got.CountNext != defaultCountNext {
+		t.Errorf("old event countdowns %d, %d", got.CountFirst, got.CountNext)
 	}
 }

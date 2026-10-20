@@ -1,12 +1,20 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"log/slog"
 	"net/http"
 	"regexp"
+	"slices"
+	"strings"
 
 	"github.com/jstader/partyfax/backend/internal/doc"
 	"github.com/jstader/partyfax/backend/internal/httpx"
@@ -45,6 +53,7 @@ func (a *api) routes() *http.ServeMux {
 	// Guests: everything takes the event code.
 	mux.HandleFunc("POST /api/booth/join", a.join)
 	mux.HandleFunc("POST /api/booth/print", a.print)
+	mux.HandleFunc("POST /api/booth/reprint", a.reprint)
 	mux.HandleFunc("GET /api/booth/strips", a.strips)
 	mux.HandleFunc("GET /api/booth/strips/{id}", a.strip)
 	mux.HandleFunc("GET /api/booth/health", httpx.Health)
@@ -58,6 +67,8 @@ func (a *api) routes() *http.ServeMux {
 	admin.HandleFunc("POST /api/booth/admin/events/{event}/code", a.newCode)
 	admin.HandleFunc("GET /api/booth/admin/events/{event}/strips", a.adminStrips)
 	admin.HandleFunc("GET /api/booth/admin/events/{event}/strips/{id}", a.adminStrip)
+	admin.HandleFunc("GET /api/booth/admin/events/{event}/strips.zip", a.stripsZip)
+	admin.HandleFunc("DELETE /api/booth/admin/events/{event}/strips/{id}", a.deleteStrip)
 	admin.HandleFunc("POST /api/booth/admin/events/{event}/strips/{id}/hide", a.hideStrip(true))
 	admin.HandleFunc("POST /api/booth/admin/events/{event}/strips/{id}/show", a.hideStrip(false))
 	admin.HandleFunc("POST /api/booth/admin/events/{event}/test", a.testPrint)
@@ -107,6 +118,39 @@ func (a *api) print(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.printStrip(w, r, png, cfg.Height, e.ID, true)
+}
+
+// reprint prints a strip from the event's wall again, for a guest who wants
+// another copy. Not kept a second time: the wall already has it. Caddy
+// limits it with the same allowance as printing.
+func (a *api) reprint(w http.ResponseWriter, r *http.Request) {
+	e, ok := a.guest(w, r)
+	if !ok {
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<10)
+	var in struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil || !validStripID.MatchString(in.ID) {
+		a.fail(w, r, http.StatusBadRequest, "send {\"id\": \"...\"}")
+		return
+	}
+
+	png, err := a.store.StripPNG(e.ID, in.ID, false)
+	if err != nil {
+		a.fail(w, r, http.StatusNotFound, errNoStrip.Error())
+		return
+	}
+	cfg, err := doc.ValidateStrip(bytes.NewReader(png))
+	if err != nil {
+		a.log.ErrorContext(r.Context(), "stored strip is unreadable", "event", e.ID, "strip", in.ID, "err", err)
+		a.fail(w, r, http.StatusInternalServerError, "that strip can't be printed")
+		return
+	}
+
+	a.printStrip(w, r, png, cfg.Height, e.ID, false)
 }
 
 // strips is the event's wall: what's been printed, newest first.
@@ -226,6 +270,109 @@ func (a *api) adminStrips(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) adminStrip(w http.ResponseWriter, r *http.Request) {
 	a.servePNG(w, r, r.PathValue("event"), r.PathValue("id"), true)
+}
+
+func (a *api) deleteStrip(w http.ResponseWriter, r *http.Request) {
+	if !validStripID.MatchString(r.PathValue("id")) {
+		a.fail(w, r, http.StatusNotFound, errNoStrip.Error())
+		return
+	}
+	if err := a.store.DeleteStrip(r.PathValue("event"), r.PathValue("id")); err != nil {
+		a.storeFailed(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// albumScale enlarges strips for an album: 384 dots wide is a thumbnail on a
+// phone. Whole multiples, nearest neighbour, so the dots stay crisp squares.
+const albumScale = 3
+
+// stripsZip is every strip the event printed, hidden ones too, enlarged for
+// a photo album, oldest first so an album sorts them by time.
+func (a *api) stripsZip(w http.ResponseWriter, r *http.Request) {
+	e, ok := a.store.Event(r.PathValue("event"))
+	if !ok {
+		a.fail(w, r, http.StatusNotFound, errNoEvent.Error())
+		return
+	}
+
+	strips := a.store.Strips(e.ID, true)
+	slices.Reverse(strips)
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-strips.zip"`, slug(e.Title)))
+	w.Header().Set("Cache-Control", "no-store")
+
+	zw := zip.NewWriter(w)
+	for _, st := range strips {
+		b, err := a.store.StripPNG(e.ID, st.ID, true)
+		if err != nil {
+			continue
+		}
+		big, err := enlarge(b, albumScale)
+		if err != nil {
+			a.log.WarnContext(r.Context(), "skipping unreadable strip", "strip", st.ID, "err", err)
+			continue
+		}
+		name := fmt.Sprintf("%s-%s.png", st.Time.Format("2006-01-02-150405"), st.ID[:8])
+		f, err := zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store, Modified: st.Time})
+		if err != nil {
+			return // the client went away; the response is already started
+		}
+		if _, err := f.Write(big); err != nil {
+			return
+		}
+	}
+	_ = zw.Close()
+}
+
+// enlarge scales a one-bit strip by a whole number, nearest neighbour, and
+// re-encodes it. PNG compresses the flat result well, so it stays small.
+func enlarge(b []byte, k int) ([]byte, error) {
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	bounds := img.Bounds()
+	out := image.NewGray(image.Rect(0, 0, bounds.Dx()*k, bounds.Dy()*k))
+	for y := range bounds.Dy() {
+		for x := range bounds.Dx() {
+			v := color.GrayModel.Convert(img.At(bounds.Min.X+x, bounds.Min.Y+y)).(color.Gray)
+			for dy := range k {
+				row := out.Pix[(y*k+dy)*out.Stride:]
+				for dx := range k {
+					row[x*k+dx] = v.Y
+				}
+			}
+		}
+	}
+	var buf bytes.Buffer
+	enc := png.Encoder{CompressionLevel: png.BestCompression}
+	if err := enc.Encode(&buf, out); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// slug makes a title safe as a file name: letters and digits, dashes between.
+func slug(title string) string {
+	var b strings.Builder
+	dash := false
+	for _, r := range strings.ToLower(title) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			dash = false
+		} else if !dash && b.Len() > 0 {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	s := strings.TrimSuffix(b.String(), "-")
+	if s == "" {
+		return "photobooth"
+	}
+	return s
 }
 
 func (a *api) hideStrip(hidden bool) http.HandlerFunc {
