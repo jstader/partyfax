@@ -163,13 +163,17 @@ function flash() {
   f.classList.add('on');
 }
 
+/* The shot as the strip will show it: the middle of it at 4:3, mirrored.
+   Drawing the whole frame into 4:3 squashed a phone camera's taller or
+   wider picture; compose() crops, and so must this. */
 function thumb(shot) {
   const c = document.createElement('canvas');
   c.width = 120; c.height = 90;
   const ctx = c.getContext('2d');
-  // Mirrored, as the strip will be.
+  let sw = shot.width, sh = shot.height;
+  if (sw / sh > 4 / 3) sw = sh * 4 / 3; else sh = sw * 3 / 4;
   ctx.translate(120, 0); ctx.scale(-1, 1);
-  ctx.drawImage(shot, 0, 0, 120, 90);
+  ctx.drawImage(shot, (shot.width - sw) / 2, (shot.height - sh) / 2, sw, sh, 0, 0, 120, 90);
   const li = document.createElement('li');
   li.append(c);
   $('thumbs').append(li);
