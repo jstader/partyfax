@@ -145,11 +145,13 @@ button.quiet {
     linear-gradient(#000, #000) right / 30px 100% no-repeat;
 }
 
-/* The welcome screen fits the phone, no scrolling: it is exactly the screen
-   tall, and the sample strip takes whatever height the rest leaves. svh, so
+/* The welcome and review screens fit the phone, no scrolling: each is
+   exactly the screen tall, and its strip takes whatever height the rest
+   leaves. svh, so
    a phone's sliding address bar doesn't push the button off. Very short
    screens scroll rather than squash the strip to nothing. */
-#screen-ready {
+#screen-ready,
+#screen-review {
   display: flex;
   flex-direction: column;
   height: calc(100svh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
@@ -303,11 +305,6 @@ button.quiet {
   image-rendering: pixelated;
 }
 
-.actions {
-  margin-top: 8px;
-  text-align: center;
-}
-
 /* ---- the wall ---- */
 
 body.wall header {
@@ -334,8 +331,8 @@ body.wall .note {
   gap: 16px;
 }
 
-/* One strip, on its own page (/strip): the strip as big as the screen
-   allows, the buttons side by side under it, no scrolling. */
+/* One strip, on its own page (/strip): the buttons in a bar across the
+   top, the strip as big as the screen allows, no scrolling. */
 .detail {
   max-width: 480px;
   margin: 0 auto;
@@ -346,9 +343,9 @@ body.wall .note {
   min-height: 420px;
 }
 
-/* The bar across the top: a round back button, then the two actions as
-   pills of the same height, each with an icon, centred in the space the
-   back button leaves. */
+/* The bar across the top of a strip's page and of the review screen: a
+   round back button (strip page only), then the two actions as pills of
+   the same height, each with an icon, centred in the space left. */
 .toolbar {
   display: flex;
   align-items: center;
@@ -425,19 +422,21 @@ body.wall .note {
   padding-top: 14px;
 }
 
-.detail .strip {
+.strip-box .strip {
   width: auto;
   max-width: 100%;
   max-height: 100%;
   margin: 0;
 }
 
-.detail .note {
+.detail .note,
+#screen-review .note {
   text-align: center;
   margin: 10px 0 0;
 }
 
-.detail .note:empty {
+.detail .note:empty,
+#screen-review .note:empty {
   display: none;
 }
 
