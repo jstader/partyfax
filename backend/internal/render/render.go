@@ -52,10 +52,14 @@ var (
 // this the last lines stay inside the printer and look dropped.
 const tailFeed = 3
 
-// stripTailFeed is more, about 26 mm: a strip's last thing is its date, right
-// at the bottom edge, where the receipts have blank footer lines to spare.
-// With the receipts' feed, tearing the strip off cut through the date.
-const stripTailFeed = 7
+// stripMargin is blank rows printed after a strip, about 24 mm: a strip's
+// last thing is its date, right at the bottom edge, where the receipts have
+// blank footer lines to spare, and tearing it off cut through the date. Rows
+// of white dots rather than more ESC d: raising the strip's ESC d from 3 to 7
+// lines made no visible difference on this printer (EM5822H), but it has to
+// move the paper to print rows, blank or not -- its "save paper" mode, which
+// would skip them, is off.
+const stripMargin = 192
 
 // feed emits ESC d n: print the buffer and advance n lines.
 func feed(lines byte) []byte {
@@ -144,8 +148,8 @@ func RenderStrip(img image.Image) []byte {
 	var buf bytes.Buffer
 
 	buf.Write(reset)
-	raster(&buf, img)
-	buf.Write(feed(stripTailFeed))
+	rasterWithMargin(&buf, img, stripMargin)
+	buf.Write(feed(tailFeed))
 
 	return buf.Bytes()
 }
@@ -154,11 +158,18 @@ func RenderStrip(img image.Image) []byte {
 // the rows themselves, eight pixels a byte, leftmost pixel in the high bit,
 // one for black.
 func raster(buf *bytes.Buffer, img image.Image) {
+	rasterWithMargin(buf, img, 0)
+}
+
+// rasterWithMargin is raster with `margin` blank rows after the picture, in
+// the same command.
+func rasterWithMargin(buf *bytes.Buffer, img image.Image, margin int) {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
 	perRow := (w + 7) / 8
+	total := h + margin
 
-	buf.Write([]byte{0x1d, 'v', '0', 0, byte(perRow), byte(perRow >> 8), byte(h), byte(h >> 8)})
+	buf.Write([]byte{0x1d, 'v', '0', 0, byte(perRow), byte(perRow >> 8), byte(total), byte(total >> 8)})
 
 	row := make([]byte, perRow)
 	for y := 0; y < h; y++ {
@@ -172,6 +183,8 @@ func raster(buf *bytes.Buffer, img image.Image) {
 
 		buf.Write(row)
 	}
+
+	buf.Write(make([]byte, perRow*margin))
 }
 
 // dark is the one decision made about a pixel. A dithered picture is already
