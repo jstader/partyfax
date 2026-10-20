@@ -67,11 +67,11 @@ export async function strips(code) {
   return (await res.json()).strips;
 }
 
-/* One strip as an object URL: an <img> can't send the code header. */
-export async function stripURL(code, id) {
+/* One strip's picture, as a blob: an <img> can't send the code header. */
+export async function stripBlob(code, id) {
   const res = await fetch(`/api/booth/strips/${encodeURIComponent(id)}`, { headers: { 'X-Event-Code': code } });
   if (!res.ok) throw new Error(await reason(res));
-  return URL.createObjectURL(await res.blob());
+  return res.blob();
 }
 
 async function reason(res) {

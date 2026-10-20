@@ -1,7 +1,7 @@
 /* An event's wall: every strip printed there, newest first, new ones
    appearing as they print. Only for guests who have the event's code. */
 
-import { savedCode, join, strips, stripURL, reprint } from './js/api.js?v=2';
+import { savedCode, join, strips, stripBlob, reprint } from './js/api.js?v=3';
 
 const POLL_MS = 10_000;
 const BUSY_RETRY_MS = 3000;
@@ -12,7 +12,8 @@ const SAVE_SCALE = 3;
 
 const $ = (id) => document.getElementById(id);
 const shown = new Set();
-const urls = new Map(); // strip id -> object URL of its picture
+const blobs = new Map(); // strip id -> its picture
+const urls = new Map();  // strip id -> an object URL of it, for <img>
 let code = '';
 let title = 'photobooth';
 // The open strip, enlarged and ready to share. Prepared when it opens, not
@@ -43,8 +44,12 @@ async function refresh(code) {
     a.append(img);
     li.append(a);
     $('strips').prepend(li);
-    stripURL(code, s.id).then((u) => { urls.set(s.id, u); img.src = u; if (location.hash === '#' + s.id) route(); })
-      .catch(() => li.remove());
+    stripBlob(code, s.id).then((b) => {
+      blobs.set(s.id, b);
+      urls.set(s.id, URL.createObjectURL(b));
+      img.src = urls.get(s.id);
+      if (location.hash === '#' + s.id) route();
+    }).catch(() => li.remove());
   }
   return true;
 }
@@ -69,24 +74,22 @@ function route() {
     ready = new File([blob], fileName(id), { type: 'image/png' });
     $('download').href = URL.createObjectURL(blob);
     $('download').download = fileName(id);
-  });
+  }).catch((e) => { $('detail-status').textContent = `Couldn't prepare the picture: ${e.message}`; });
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
 $('back').addEventListener('click', (e) => { e.preventDefault(); location.hash = ''; });
 
 /* The strip enlarged for keeping, as a PNG blob. */
-function enlarged(id) {
-  const img = new Image();
-  img.src = urls.get(id);
-  return img.decode().then(() => {
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth * SAVE_SCALE; c.height = img.naturalHeight * SAVE_SCALE;
-    const ctx = c.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, 0, 0, c.width, c.height);
-    return new Promise((ok) => c.toBlob(ok, 'image/png'));
-  });
+async function enlarged(id) {
+  const bmp = await createImageBitmap(blobs.get(id));
+  const c = document.createElement('canvas');
+  c.width = bmp.width * SAVE_SCALE; c.height = bmp.height * SAVE_SCALE;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close();
+  return new Promise((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error('no PNG'))), 'image/png'));
 }
 
 const fileName = (id) => `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photobooth'}-${id.slice(0, 8)}.png`;

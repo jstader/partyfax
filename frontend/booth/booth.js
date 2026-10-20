@@ -2,7 +2,7 @@
    one strip on paper. */
 
 import { compose, iconRects, loadFont, sampleShots } from './js/strip.js?v=2';
-import { savedCode, saveCode, forgetCode, join, printStrip } from './js/api.js?v=2';
+import { savedCode, saveCode, forgetCode, join, printStrip } from './js/api.js?v=3';
 import { unpack, encodePNG } from '../js/photo.js?v=4';
 
 const $ = (id) => document.getElementById(id);
