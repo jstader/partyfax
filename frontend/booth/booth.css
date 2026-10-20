@@ -334,19 +334,57 @@ body.wall .note {
   gap: 16px;
 }
 
-/* One strip, on its own page (/strip). */
+/* One strip, on its own page (/strip): the strip as big as the screen
+   allows, the buttons side by side under it, no scrolling. */
 .detail {
   max-width: 480px;
   margin: 0 auto;
-  padding: 16px 16px 32px;
+  padding: max(10px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  min-height: 420px;
+}
+
+.detail > p:first-child {
+  margin: 0 0 8px;
+}
+
+.strip-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .detail .strip {
-  max-width: 300px;
+  width: auto;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+
+.detail .actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.detail .actions button.big {
+  flex: 1;
+  margin: 0;
+  padding: 14px 8px;
+  font-size: 16px;
 }
 
 .detail .note {
   text-align: center;
+  margin: 8px 0 0;
+}
+
+.detail .note:empty {
+  display: none;
 }
 
 button.secondary {
