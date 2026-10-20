@@ -59,7 +59,7 @@ const tailFeed = 3
 // lines made no visible difference on this printer (EM5822H), but it has to
 // move the paper to print rows, blank or not -- its "save paper" mode, which
 // would skip them, is off.
-// 192 (24 mm) left too much tail once torn; 128 is the measured fit.
+// 192 (24 mm) left a little too much tail once torn; 128 is the next try.
 const stripMargin = 128
 
 // feed emits ESC d n: print the buffer and advance n lines.
