@@ -283,7 +283,8 @@ $('download-all').addEventListener('click', async () => {
     const blob = await call('GET', `${API}/${current.id}/strips.zip`);
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(blob),
-      download: `${current.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photobooth'}-strips.zip`,
+      download: `${current.title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photobooth'}-strips.zip`,
     });
     a.click();
     note('Downloaded.');

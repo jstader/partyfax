@@ -92,7 +92,10 @@ async function enlarged(id) {
   return new Promise((ok, bad) => c.toBlob((b) => (b ? ok(b) : bad(new Error('no PNG'))), 'image/png'));
 }
 
-const fileName = (id) => `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photobooth'}-${id.slice(0, 8)}.png`;
+// "Spooky Soirée" -> "spooky-soiree": accents dropped to their letter.
+const slug = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photobooth';
+const fileName = (id) => `${slug(title)}-${id.slice(0, 8)}.png`;
 
 // The share sheet: on a phone it has Save Image (to Photos), Messages and
 // the rest. Without one, fall back to downloading the file.
