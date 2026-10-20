@@ -2,7 +2,7 @@
    strips. Cloudflare Access signs the host in before this page loads; the
    booth service checks that sign-in again on every call. */
 
-import { FRAMES, FONTS, ICONS, MAX_ICONS, compose, sampleShots } from '../js/strip.js?v=1';
+import { FRAMES, FONTS, ICONS, MAX_ICONS, compose, sampleShots } from '../js/strip.js?v=2';
 import { unpack, encodePNG } from '../../js/photo.js?v=4';
 
 const $ = (id) => document.getElementById(id);
@@ -61,9 +61,19 @@ function showList() {
   current = null;
   $('edit-view').hidden = true;
   $('list-view').hidden = false;
-  history.replaceState(null, '', location.pathname);
   loadList();
 }
+
+/* The page follows the #: #<event id> edits it, nothing is the list. Links,
+   the back button and a bookmarked URL all go through here. */
+async function route() {
+  const id = location.hash.slice(1);
+  if (!id) { showList(); return; }
+  if (!events.some((e) => e.id === id)) await loadList();
+  const e = events.find((e) => e.id === id);
+  if (e) edit(e); else { note('No event with that link.'); showList(); }
+}
+window.addEventListener('hashchange', route);
 
 /* ---- the editor ------------------------------------------------------------------- */
 
@@ -72,8 +82,11 @@ function fillChoices() {
   $('f-frame').replaceChildren(...FRAMES.map((f) => new Option(f[0].toUpperCase() + f.slice(1), f)));
   $('f-icons').replaceChildren(...Object.keys(ICONS).map((name) => {
     const label = document.createElement('label');
-    const box = Object.assign(document.createElement('input'), { type: 'checkbox', value: name });
-    label.append(box, ' ' + name);
+    const count = Object.assign(document.createElement('input'), {
+      type: 'number', min: 0, max: MAX_ICONS, value: 0, className: 'icon-count',
+    });
+    count.dataset.icon = name;
+    label.append(count, ' ' + name);
     return label;
   }));
 }
@@ -84,12 +97,15 @@ function edit(e) {
   $('edit-view').hidden = false;
   $('sign').hidden = true;
   $('saved-only').hidden = !e.id;
+  if (e.id) showShare(e);
 
   $('f-title').value = e.title;
   $('f-subtitle').value = e.subtitle;
   $('f-font').value = e.font;
   $('f-frame').value = e.frame;
-  for (const box of $('f-icons').querySelectorAll('input')) box.checked = e.icons.includes(box.value);
+  for (const n of $('f-icons').querySelectorAll('input')) {
+    n.value = e.icons.filter((i) => i === n.dataset.icon).length;
+  }
   $('f-active').checked = e.active;
   $('f-wall').checked = e.wall;
 
@@ -104,16 +120,18 @@ function formEvent() {
     subtitle: $('f-subtitle').value.trim(),
     font: $('f-font').value,
     frame: $('f-frame').value,
-    icons: [...$('f-icons').querySelectorAll('input:checked')].map((b) => b.value),
+    // Each icon as many times as its count, in the picker's order.
+    icons: [...$('f-icons').querySelectorAll('input')]
+      .flatMap((n) => Array(Math.max(0, Math.min(MAX_ICONS, n.valueAsNumber || 0))).fill(n.dataset.icon)),
     active: $('f-active').checked,
     wall: $('f-wall').checked,
   };
 }
 
-// No more than MAX_ICONS ticked: untick the oldest choice otherwise.
-$('f-icons').addEventListener('change', (ev) => {
-  const ticked = [...$('f-icons').querySelectorAll('input:checked')];
-  if (ticked.length > MAX_ICONS) ev.target.checked = false;
+// No more than MAX_ICONS in all: the count just raised gives way.
+$('f-icons').addEventListener('input', (ev) => {
+  const total = [...$('f-icons').querySelectorAll('input')].reduce((a, n) => a + (n.valueAsNumber || 0), 0);
+  if (total > MAX_ICONS) ev.target.value = Math.max(0, ev.target.valueAsNumber - (total - MAX_ICONS));
 });
 
 $('form').addEventListener('input', schedulePreview);
@@ -136,7 +154,7 @@ $('form').addEventListener('submit', async (ev) => {
 $('new').addEventListener('click', () => edit({
   id: null, title: '', subtitle: '', font: 'display', frame: 'film', icons: [], active: true, wall: true,
 }));
-$('back').addEventListener('click', showList);
+$('back').addEventListener('click', () => { location.hash = ''; });
 
 $('new-code').addEventListener('click', async () => {
   if (!confirm('Make a new code? The old one stops working, including on guests\' phones.')) return;
@@ -152,17 +170,73 @@ $('delete').addEventListener('click', async () => {
   try {
     await call('DELETE', `${API}/${current.id}`);
     note('Deleted.');
-    showList();
+    events = events.filter((x) => x.id !== current.id);
+    location.hash = '';
   } catch (e) { note(e.message); }
+});
+
+/* ---- the guest link, QR code and sign ------------------------------------------ */
+
+/* The code rides after the #, which browsers never send to a server, so
+   texted links and scanned QR codes don't put it in anyone's logs. */
+const guestLink = (e) => `${location.origin}/#${e.code}`;
+const spaced = (code) => code.slice(0, 3) + ' ' + code.slice(3);
+
+/* A QR code drawn square-edged onto a canvas, with the standard quiet zone
+   of four modules around it. qrcode is the vendored qrcode-generator. */
+function drawQR(canvas, text) {
+  const qr = window.qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount(), quiet = 4;
+  const scale = Math.floor(canvas.width / (n + 2 * quiet));
+  const size = scale * (n + 2 * quiet);
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#000';
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (qr.isDark(r, c)) ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+    }
+  }
+}
+
+function showShare(e) {
+  $('link').value = guestLink(e);
+  $('code-text').textContent = spaced(e.code);
+  $('qr').width = 200;
+  drawQR($('qr'), guestLink(e));
+  $('share').hidden = !navigator.share;
+}
+
+$('copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(guestLink(current));
+    note('Link copied. Paste it into a text to your guests.');
+  } catch {
+    $('link').select();
+    note('Copy the selected link.');
+  }
+});
+
+// On a phone this opens the share sheet: Messages, WhatsApp, email.
+$('share').addEventListener('click', () => {
+  navigator.share({ title: current.title, text: `Photobooth for ${current.title}`, url: guestLink(current) })
+    .catch(() => { /* closed the sheet */ });
 });
 
 $('show-sign').addEventListener('click', () => {
   $('sign-title').textContent = current.title;
-  $('sign-code').textContent = current.code.slice(0, 3) + ' ' + current.code.slice(3);
+  $('sign-code').textContent = spaced(current.code);
+  $('sign-qr').width = 400;
+  drawQR($('sign-qr'), guestLink(current));
   $('sign').hidden = false;
-  $('sign').scrollIntoView({ behavior: 'smooth' });
-  setTimeout(() => window.print(), 300);
+  window.print();
 });
+
+// The sign only exists on paper; hide it again once the print dialog closes.
+window.addEventListener('afterprint', () => { $('sign').hidden = true; });
 
 /* ---- preview and test print ------------------------------------------------------- */
 
@@ -227,5 +301,4 @@ async function loadStrips() {
 
 fillChoices();
 await loadList();
-const fromHash = events.find((e) => '#' + e.id === location.hash);
-if (fromHash) edit(fromHash);
+route();

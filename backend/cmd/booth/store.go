@@ -23,13 +23,14 @@ import (
 var (
 	frames = []string{"line", "double", "dotted", "film"}
 	fonts  = []string{"vt323", "display", "script"}
-	icons  = []string{"heart", "star", "balloon", "cake", "confetti", "music", "camera", "sparkle"}
+	icons  = []string{"heart", "star", "balloon", "cake", "confetti", "music", "camera", "sparkle",
+		"pumpkin", "ghost", "tree", "snowflake", "gift", "bat"}
 )
 
 const (
 	maxTitle    = 40
 	maxSubtitle = 60
-	maxIcons    = 4
+	maxIcons    = 6 // an icon may repeat
 )
 
 // codeAlphabet leaves out 0/O and 1/I/L, which read the same off a sign

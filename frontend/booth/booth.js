@@ -1,7 +1,7 @@
 /* The photobooth: a code, a countdown, four photos from the front camera,
    one strip on paper. */
 
-import { compose } from './js/strip.js?v=1';
+import { compose, iconRects, loadFont, sampleShots } from './js/strip.js?v=2';
 import { savedCode, saveCode, forgetCode, join, printStrip } from './js/api.js?v=1';
 import { unpack, encodePNG } from '../js/photo.js?v=4';
 
@@ -29,6 +29,26 @@ function setTheme(t) {
   $('event-title').textContent = t.title;
   $('event-subtitle').textContent = t.subtitle || '';
   for (const id of ['wall-link', 'wall-link-done']) $(id).hidden = !t.wall;
+
+  // The event's frame style dresses the welcome card; its font sets the title.
+  $('hero').className = `hero frame-${t.frame}`;
+  loadFont(t.font).then((f) => { $('event-title').style.fontFamily = `"${f.family}", system-ui, sans-serif`; });
+  drawIcons($('hero-icons'), t.icons.length ? t.icons : ['camera', 'sparkle'], 3);
+
+  // What they'll get: the strip with stand-in photos, in this event's theme.
+  compose(t, sampleShots(), new Date()).then((s) => draw(s, $('sample')));
+}
+
+/* Pixel-art icons in a row on a canvas, light on the dark page. */
+function drawIcons(canvas, names, scale) {
+  const size = 16 * scale, gap = 6 * scale;
+  canvas.width = names.length * (size + gap) - gap;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f4f3ef';
+  names.forEach((n, i) => {
+    for (const [x, y, w, h] of iconRects(n, i * (size + gap), 0, scale)) ctx.fillRect(x, y, w, h);
+  });
 }
 
 /* ---- the code ------------------------------------------------------------------- */
@@ -57,13 +77,6 @@ $('code-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const typed = $('code').value.trim();
   if (typed) enterCode(typed);
-});
-
-$('leave').addEventListener('click', () => {
-  forgetCode();
-  code = ''; theme = null;
-  $('code').value = '';
-  show('code');
 });
 
 /* ---- the camera ------------------------------------------------------------------ */
@@ -174,8 +187,7 @@ document.addEventListener('visibilitychange', () => {
 
 /* ---- review and print ------------------------------------------------------------ */
 
-function draw({ bits, h }) {
-  const c = $('preview');
+function draw({ bits, h }, c = $('preview')) {
   c.width = 384; c.height = h;
   const ctx = c.getContext('2d');
   const img = ctx.createImageData(384, h);
@@ -219,11 +231,26 @@ $('print').addEventListener('click', async () => {
 
 /* ---- start ------------------------------------------------------------------------- */
 
+drawIcons($('code-art'), ['camera'], 6);
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const remembered = savedCode();
-if (remembered) {
-  enterCode(remembered).then((ok) => { if (!ok) { forgetCode(); $('code-error').textContent = ''; show('code'); } });
+/* A link or QR code from the host carries the code after the #, which the
+   browser never sends to the server, so codes stay out of logs. It wins
+   over one remembered from an earlier event. Once used it's taken out of
+   the address bar, so a screenshot of the page doesn't show it. */
+const linked = decodeURIComponent(location.hash.slice(1)).trim();
+if (linked) history.replaceState(null, '', location.pathname);
+
+const start = linked || savedCode();
+if (start) {
+  enterCode(start).then((ok) => {
+    if (ok) return;
+    forgetCode();
+    // A bad link says why; a stale remembered code just asks for a new one.
+    if (!linked) $('code-error').textContent = '';
+    show('code');
+  });
 } else {
   show('code');
 }

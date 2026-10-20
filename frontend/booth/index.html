@@ -7,14 +7,15 @@
 <meta name="theme-color" content="#111111">
 <title>Photobooth</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='4' width='14' height='10' rx='2' fill='%23000'/%3E%3Ccircle cx='8' cy='9' r='3' fill='%23fff'/%3E%3Crect x='5' y='2' width='6' height='3' fill='%23000'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/booth/booth.css?v=1">
+<link rel="stylesheet" href="/booth/booth.css?v=2">
 </head>
 <body>
 <main>
   <!-- One screen at a time; booth.js shows them. -->
   <section id="screen-code" class="screen">
+    <canvas id="code-art" class="pixel-art" width="96" height="96" aria-hidden="true"></canvas>
     <h1>Photobooth</h1>
-    <p>Type the code from the sign.</p>
+    <p>Scan the QR code on the sign, or type its code here.</p>
     <form id="code-form" autocomplete="off">
       <input id="code" inputmode="text" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="ABC 234" aria-label="Event code">
       <button type="submit">Go</button>
@@ -23,12 +24,16 @@
   </section>
 
   <section id="screen-ready" class="screen" hidden>
-    <h1 id="event-title"></h1>
-    <p id="event-subtitle" class="sub"></p>
-    <p>Four photos, a few seconds apart. Then it prints.</p>
+    <!-- The event's look: its frame style, font, icons and a sample strip. -->
+    <div id="hero" class="hero">
+      <canvas id="hero-icons" class="pixel-art" aria-hidden="true"></canvas>
+      <h1 id="event-title"></h1>
+      <p id="event-subtitle" class="sub"></p>
+      <canvas id="sample" class="sample-strip" aria-label="An example of the strip you'll get"></canvas>
+    </div>
+    <p class="how">Four photos, a few seconds apart. Then it prints.</p>
     <button id="enter" class="big">Enter the photobooth</button>
     <p class="links"><a id="wall-link" href="/wall" hidden>See everyone's strips</a></p>
-    <p class="links"><button id="leave" class="quiet">Different event</button></p>
   </section>
 
   <section id="screen-camera" class="screen camera" hidden>
@@ -57,6 +62,6 @@
     <p class="links"><a id="wall-link-done" href="/wall" hidden>See everyone's strips</a></p>
   </section>
 </main>
-<script type="module" src="/booth/booth.js?v=1"></script>
+<script type="module" src="/booth/booth.js?v=2"></script>
 </body>
 </html>

@@ -139,7 +139,7 @@ func TestValidateRefusesWhatTheComposerCantDraw(t *testing.T) {
 		"frame":         func(e *Event) { e.Frame = "wavy" },
 		"font":          func(e *Event) { e.Font = "comic" },
 		"icon":          func(e *Event) { e.Icons = []string{"skull"} },
-		"too many":      func(e *Event) { e.Icons = []string{"heart", "star", "cake", "music", "camera"} },
+		"too many":      func(e *Event) { e.Icons = []string{"heart", "star", "cake", "music", "camera", "bat", "gift"} },
 	}
 	s, _ := OpenStore(t.TempDir())
 	for name, spoil := range cases {

@@ -85,6 +85,72 @@ button.quiet {
   font-weight: 400;
 }
 
+/* ---- the welcome card, dressed as the event's frame ---- */
+
+.pixel-art {
+  display: block;
+  margin: 12px auto 0;
+  image-rendering: pixelated;
+}
+
+.hero {
+  position: relative;
+  margin: 16px 0 8px;
+  padding: 22px 18px 18px;
+  text-align: center;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.hero h1 {
+  font-size: 42px;
+  margin: 14px 0 4px;
+}
+
+.hero .sub {
+  margin: 0 0 14px;
+}
+
+.frame-line {
+  border: 3px solid var(--fg);
+}
+
+.frame-double {
+  border: 9px double var(--fg);
+}
+
+.frame-dotted {
+  border: 5px dotted var(--fg);
+}
+
+/* Film: black bands down both sides with light sprocket holes. */
+.frame-film {
+  padding-left: 40px;
+  padding-right: 40px;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 8px, var(--fg) 8px 22px, transparent 22px 30px) left 9px top 0 / 12px 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 8px, var(--fg) 8px 22px, transparent 22px 30px) right 9px top 0 / 12px 100% no-repeat,
+    linear-gradient(#000, #000) left / 30px 100% no-repeat,
+    linear-gradient(#000, #000) right / 30px 100% no-repeat;
+}
+
+/* The sample strip, tilted like one just pulled from the printer. */
+.sample-strip {
+  display: block;
+  width: 42%;
+  max-width: 160px;
+  height: auto;
+  margin: 6px auto 0;
+  background: #fff;
+  image-rendering: pixelated;
+  transform: rotate(-4deg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.how {
+  text-align: center;
+}
+
 /* ---- code entry ---- */
 
 #code-form {
@@ -275,6 +341,14 @@ form.event select {
   gap: 8px 14px;
 }
 
+.icon-count {
+  width: 3.2em;
+  padding: 4px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #1b1b1b;
+}
+
 .icon-picks label,
 .toggles label {
   color: var(--fg);
@@ -317,30 +391,95 @@ form.event select {
   font-size: 14px;
 }
 
-/* The sign, for the host to print and stand by the booth. */
+/* The guest link panel in the editor. */
+.share {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.share > div {
+  flex: 1;
+  min-width: 220px;
+}
+
+.qr {
+  width: 140px;
+  height: 140px;
+  border-radius: 8px;
+  image-rendering: pixelated;
+}
+
+#link {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #555;
+  border-radius: 8px;
+  background: #1b1b1b;
+  font: 14px ui-monospace, monospace;
+}
+
+.code {
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.1em;
+}
+
+/* The sign, for the host to print and stand by the booth. It only exists on
+   paper: hidden on screen, and the only thing printed. */
 .sign {
   text-align: center;
-  padding: 40px 16px;
-  border: 3px solid var(--fg);
-  border-radius: 16px;
+}
+
+.sign-title {
+  font: 700 44px/1.1 system-ui, sans-serif;
+}
+
+.sign-lead {
+  font-size: 22px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  margin: 8px 0 24px;
+}
+
+.sign-qr {
+  width: 9cm;
+  height: 9cm;
+  image-rendering: pixelated;
+}
+
+.sign-alt {
   margin-top: 24px;
 }
 
 .sign .big-code {
   font: 700 64px/1 ui-monospace, monospace;
   letter-spacing: 0.15em;
-  margin: 16px 0;
+  margin: 12px 0;
 }
 
 @media print {
-  body {
+  @page {
+    margin: 1.5cm;
+  }
+  body,
+  body.admin {
     background: #fff;
     color: #000;
+    min-height: 0;
+  }
+  body.admin main {
+    max-width: none;
+    padding: 0;
   }
   body.admin main > :not(.sign) {
+    display: none !important;
+  }
+  .sign[hidden] {
     display: none;
   }
   .sign {
-    border-color: #000;
+    display: block;
+    padding-top: 1cm;
   }
 }

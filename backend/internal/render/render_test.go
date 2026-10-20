@@ -344,8 +344,8 @@ func TestRenderPhotoKeepsTheFrame(t *testing.T) {
 }
 
 // A strip is the picture and nothing else: no masthead, no footer, since the
-// photobooth draws its own. Still reset first and fed out after, in one
-// raster command however tall.
+// photobooth draws its own. Still reset first and fed out after -- further
+// than a receipt, past the tear bar -- in one raster command however tall.
 func TestRenderStripIsBare(t *testing.T) {
 	img := image.NewGray(image.Rect(0, 0, doc.PhotoWidth, doc.StripMaxRows))
 	for i := range img.Pix {
@@ -354,7 +354,7 @@ func TestRenderStripIsBare(t *testing.T) {
 
 	got := RenderStrip(img)
 
-	want := cat(reset, rasterHeader(doc.StripMaxRows), make([]byte, 48*doc.StripMaxRows), feed(tailFeed))
+	want := cat(reset, rasterHeader(doc.StripMaxRows), make([]byte, 48*doc.StripMaxRows), feed(stripTailFeed))
 	if !bytes.Equal(got, want) {
 		t.Errorf("strip is %d bytes, want exactly reset, one %d-row raster and the feed (%d bytes)",
 			len(got), doc.StripMaxRows, len(want))

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Photobooth admin</title>
-<link rel="stylesheet" href="/booth/booth.css?v=1">
+<link rel="stylesheet" href="/booth/booth.css?v=2">
 </head>
 <body class="admin">
 <main>
@@ -29,7 +29,7 @@
         <select id="f-font"></select>
         <label for="f-frame">Frame</label>
         <select id="f-frame"></select>
-        <label>Icons (up to 4)</label>
+        <label>Icons: how many of each, up to 6 in all</label>
         <div id="f-icons" class="icon-picks"></div>
         <div class="toggles">
           <label><input id="f-active" type="checkbox"> Open (guests can print)</label>
@@ -39,10 +39,25 @@
           <button type="submit" id="save">Save</button>
           <button type="button" id="test">Print a test strip</button>
         </div>
-        <div class="row" id="saved-only" hidden>
-          <button type="button" id="new-code" class="quiet">New code</button>
-          <button type="button" id="show-sign" class="quiet">Sign to print</button>
-          <button type="button" id="delete" class="quiet">Delete event</button>
+        <div id="saved-only" hidden>
+          <h2>Guest link</h2>
+          <p class="note">Scanning the QR code or opening the link goes straight to the booth, no code to type.</p>
+          <div class="share">
+            <canvas id="qr" class="qr" width="200" height="200" aria-label="QR code for the guest link"></canvas>
+            <div>
+              <input id="link" type="text" readonly aria-label="Guest link">
+              <div class="row">
+                <button type="button" id="copy">Copy link</button>
+                <button type="button" id="share" hidden>Share...</button>
+                <button type="button" id="show-sign">Print sign</button>
+              </div>
+              <p class="note">Code: <span id="code-text" class="code"></span></p>
+            </div>
+          </div>
+          <div class="row">
+            <button type="button" id="new-code" class="quiet">New code</button>
+            <button type="button" id="delete" class="quiet">Delete event</button>
+          </div>
         </div>
       </form>
       <div class="preview-col">
@@ -51,17 +66,21 @@
       </div>
     </div>
 
-    <div id="sign" class="sign" hidden>
-      <div id="sign-title"></div>
-      <p>Photobooth</p>
-      <p>Open <strong>photobooth.nilanet.live</strong> on your phone and enter</p>
-      <div id="sign-code" class="big-code"></div>
-    </div>
-
     <h2>Strips</h2>
     <ul id="strips" class="admin-strips"></ul>
   </section>
+
+  <!-- Outside the editor, so printing can show it alone (booth.css @media print). -->
+  <div id="sign" class="sign" hidden>
+    <div id="sign-title" class="sign-title"></div>
+    <p class="sign-lead">Photobooth</p>
+    <canvas id="sign-qr" class="sign-qr" width="400" height="400"></canvas>
+    <p>Scan with your phone's camera</p>
+    <p class="sign-alt">or open <strong>photobooth.nilanet.live</strong> and enter</p>
+    <div id="sign-code" class="big-code"></div>
+  </div>
 </main>
-<script type="module" src="/booth/admin/admin.js?v=1"></script>
+<script src="/booth/vendor/qrcode-1.4.4.js"></script>
+<script type="module" src="/booth/admin/admin.js?v=2"></script>
 </body>
 </html>

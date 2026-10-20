@@ -52,6 +52,11 @@ var (
 // this the last lines stay inside the printer and look dropped.
 const tailFeed = 3
 
+// stripTailFeed is more, about 26 mm: a strip's last thing is its date, right
+// at the bottom edge, where the receipts have blank footer lines to spare.
+// With the receipts' feed, tearing the strip off cut through the date.
+const stripTailFeed = 7
+
 // feed emits ESC d n: print the buffer and advance n lines.
 func feed(lines byte) []byte {
 	return []byte{0x1b, 'd', lines}
@@ -140,7 +145,7 @@ func RenderStrip(img image.Image) []byte {
 
 	buf.Write(reset)
 	raster(&buf, img)
-	buf.Write(feed(tailFeed))
+	buf.Write(feed(stripTailFeed))
 
 	return buf.Bytes()
 }
