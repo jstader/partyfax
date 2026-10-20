@@ -149,6 +149,7 @@ http://photobooth.nilanet.live {
 		root * /srv/web
 		rewrite / /booth/index.html
 		rewrite /wall /booth/wall.html
+		rewrite /strip /booth/strip.html
 		rewrite /admin /booth/admin/index.html
 		rewrite /admin/ /booth/admin/index.html
 

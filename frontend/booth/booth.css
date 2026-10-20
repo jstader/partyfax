@@ -11,6 +11,12 @@
   box-sizing: border-box;
 }
 
+/* hidden means hidden, whatever display a class gives the element: without
+   this a hidden grid or flex box stays on screen. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -288,26 +294,21 @@ body.wall .note {
   gap: 16px;
 }
 
-/* One strip, opened from the wall. */
+/* One strip, on its own page (/strip). */
 .detail {
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 16px 32px;
+  padding: 16px 16px 32px;
 }
 
 .detail .strip {
   max-width: 300px;
 }
 
-.button-link {
-  display: block;
-  margin: 12px 0 0;
-  padding: 14px;
+button.secondary {
+  background: transparent;
+  color: var(--fg);
   border: 2px solid var(--fg);
-  border-radius: 12px;
-  text-align: center;
-  text-decoration: none;
-  font-weight: 600;
 }
 
 .strips a {
