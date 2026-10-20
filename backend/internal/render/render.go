@@ -52,14 +52,15 @@ var (
 // this the last lines stay inside the printer and look dropped.
 const tailFeed = 3
 
-// stripMargin is blank rows printed after a strip, about 24 mm: a strip's
+// stripMargin is blank rows printed after a strip, about 16 mm: a strip's
 // last thing is its date, right at the bottom edge, where the receipts have
 // blank footer lines to spare, and tearing it off cut through the date. Rows
 // of white dots rather than more ESC d: raising the strip's ESC d from 3 to 7
 // lines made no visible difference on this printer (EM5822H), but it has to
 // move the paper to print rows, blank or not -- its "save paper" mode, which
 // would skip them, is off.
-const stripMargin = 192
+// 192 (24 mm) left too much tail once torn; 128 is the measured fit.
+const stripMargin = 128
 
 // feed emits ESC d n: print the buffer and advance n lines.
 func feed(lines byte) []byte {
