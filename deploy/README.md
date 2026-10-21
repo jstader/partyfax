@@ -110,8 +110,8 @@ a right code lately get in until the hour is up. Caddy also limits joining
 to 10 a minute per address. Turn an event off, or give it a new code, once
 the party is over: a code works for as long as the event is open.
 
-Booth limits per address: 3 strips a minute, 30 an hour, 60 a day. Strips
-are kept in the `booth` volume, `/var/lib/docker/volumes/fax_booth`, and are
+Printing strips isn't limited: the code keeps strangers out, and a party's
+guests often share one Wi-Fi address. Strips are kept in the `booth` volume, `/var/lib/docker/volumes/fax_booth`, and are
 in the nightly Proxmox backup like everything else.
 
 ## Browser caching

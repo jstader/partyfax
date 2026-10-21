@@ -53,9 +53,7 @@ $('reprint').addEventListener('click', async () => {
     );
     status.textContent = 'Printed! Grab it from the printer.';
   } catch (e) {
-    status.textContent = e.status === 429
-      ? "That's a lot of strips! Wait a minute and try again."
-      : `Didn't print: ${e.message}`;
+    status.textContent = `Didn't print: ${e.message}`;
   }
   $('reprint').disabled = false;
 });

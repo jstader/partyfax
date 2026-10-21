@@ -120,8 +120,7 @@ func (a *api) print(w http.ResponseWriter, r *http.Request) {
 }
 
 // reprint prints a strip from the event's wall again, for a guest who wants
-// another copy. Not kept a second time: the wall already has it. Caddy
-// limits it with the same allowance as printing.
+// another copy. Not kept a second time: the wall already has it.
 func (a *api) reprint(w http.ResponseWriter, r *http.Request) {
 	e, ok := a.guest(w, r)
 	if !ok {

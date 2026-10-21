@@ -220,9 +220,7 @@ $('print').addEventListener('click', async () => {
       forgetCode();
       return;
     }
-    status.textContent = e.status === 429
-      ? "That's a lot of strips! Wait a minute and try again."
-      : `Didn't print: ${e.message}`;
+    status.textContent = `Didn't print: ${e.message}`;
     $('print').disabled = false;
   }
 });

@@ -95,10 +95,11 @@ http://photobooth.nilanet.live {
 	import edge
 	import headers (self)
 
-	# Per visitor address. Joining is limited hard so event codes can't be
-	# guessed: 10 tries a minute is 14,400 a day against 887 million codes.
-	# Strips are long, so fewer of them than the main site's prints, and a
-	# reprint from the wall counts the same as a new strip.
+	# Per visitor address, joining only, so event codes can't be guessed:
+	# 10 tries a minute (the booth also counts wrong codes on every request).
+	# Printing isn't limited: the code already keeps strangers out, a party's
+	# guests often share one Wi-Fi address, and the printer takes one strip
+	# at a time anyway.
 	rate_limit {
 		zone booth_join {
 			match {
@@ -108,33 +109,6 @@ http://photobooth.nilanet.live {
 			key {client_ip}
 			events 10
 			window 1m
-		}
-		zone booth_print_minute {
-			match {
-				method POST
-				path /api/booth/print /api/booth/reprint
-			}
-			key {client_ip}
-			events 3
-			window 1m
-		}
-		zone booth_print_hour {
-			match {
-				method POST
-				path /api/booth/print /api/booth/reprint
-			}
-			key {client_ip}
-			events 30
-			window 1h
-		}
-		zone booth_print_day {
-			match {
-				method POST
-				path /api/booth/print /api/booth/reprint
-			}
-			key {client_ip}
-			events 60
-			window 24h
 		}
 	}
 

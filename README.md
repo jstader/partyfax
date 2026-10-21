@@ -28,7 +28,7 @@ and both go through the same back end to the same printer:
 | **Who** | anyone on the internet | guests at a party, with the event's code |
 | **You print** | a note or a photo on a receipt | a four-photo strip from your phone's front camera |
 | **The wall** | public, at [/prints](https://partyfax.nilanet.live/prints) | private to each event, at /wall |
-| **Limits per visitor** | 5 prints a minute, 50 an hour, 100 a day | 3 strips a minute, 30 an hour, 60 a day |
+| **Limits per visitor** | 5 prints a minute, 50 an hour, 100 a day | none: the event code keeps strangers out |
 | **Run by** | nobody: it's open | the host, from an admin page behind Cloudflare Access |
 | **Page** | `frontend/` | `frontend/booth/` |
 | **API service** | `gateway` | `booth` |
