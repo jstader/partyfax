@@ -3,7 +3,7 @@
    whole strip at a time, swiped through. Tapping one opens it on its own
    page (/strip). Only for guests who have the event's code. */
 
-import { savedCode, join, strips, stripBlob } from './js/api.js?v=3';
+import { savedCode, join, strips, stripBlob } from './js/api.js?v=4';
 import { Deck } from './js/deck.js?v=1';
 
 const POLL_MS = 10_000;
@@ -72,5 +72,7 @@ if (!code) {
     $('title').textContent = theme.title;
     document.title = `${theme.title} - photobooth`;
     if (await refresh(code)) setInterval(() => refresh(code), POLL_MS);
+  }, (e) => {
+    $('note').textContent = `Couldn't check the event code: ${e.message}`;
   });
 }

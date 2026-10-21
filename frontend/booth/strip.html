@@ -5,31 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Photo strip</title>
-<link rel="stylesheet" href="/booth/booth.css?v=11">
+<link rel="stylesheet" href="/booth/booth.css?v=12">
 </head>
 <body>
-<main class="detail">
-  <!-- One bar across the top: back on the left, what to do on the right. -->
-  <nav class="toolbar">
-    <a class="tool back" href="/wall" aria-label="All strips">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-    </a>
-    <div class="tool-group">
-      <button id="save" class="tool primary" disabled>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 12v8h14v-8"/></svg>
-        Download or Share
-      </button>
-      <button id="reprint" class="tool">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-8h16v8h-3M7 14h10v7H7z"/></svg>
-        Reprint
-      </button>
+<main>
+  <section class="fill">
+    <!-- One bar across the top: back on the left, what to do on the right. -->
+    <nav class="toolbar">
+      <a class="tool back" href="/wall" aria-label="All strips">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </a>
+      <div class="tool-group">
+        <button id="save" class="tool primary" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 12v8h14v-8"/></svg>
+          Download or Share
+        </button>
+        <button id="reprint" class="tool">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-8h16v8h-3M7 14h10v7H7z"/></svg>
+          Reprint
+        </button>
+      </div>
+    </nav>
+    <p id="status" class="note" role="status"></p>
+    <div class="strip-box">
+      <img id="strip" class="strip" alt="Photo strip">
     </div>
-  </nav>
-  <p id="status" class="note" role="status"></p>
-  <div class="strip-box">
-    <img id="strip" class="strip" alt="Photo strip">
-  </div>
+  </section>
 </main>
-<script type="module" src="/booth/strip.js?v=1"></script>
+<script type="module" src="/booth/strip.js?v=2"></script>
 </body>
 </html>

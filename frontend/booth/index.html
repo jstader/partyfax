@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#111111">
 <title>Photobooth</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='4' width='14' height='10' rx='2' fill='%23000'/%3E%3Ccircle cx='8' cy='9' r='3' fill='%23fff'/%3E%3Crect x='5' y='2' width='6' height='3' fill='%23000'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/booth/booth.css?v=11">
+<link rel="stylesheet" href="/booth/booth.css?v=12">
 </head>
 <body>
 <main>
@@ -23,13 +23,13 @@
     <p id="code-error" class="error" role="alert"></p>
   </section>
 
-  <section id="screen-ready" class="screen" hidden>
+  <section id="screen-ready" class="screen fill" hidden>
     <!-- The event's look: its frame style, font, icons and a sample strip. -->
     <div id="hero" class="hero">
       <canvas id="hero-icons" class="pixel-art" aria-hidden="true"></canvas>
       <h1 id="event-title"></h1>
       <p id="event-subtitle" class="sub"></p>
-      <div class="sample-box">
+      <div class="strip-box">
         <canvas id="sample" class="sample-strip" aria-label="An example of the strip you'll get"></canvas>
       </div>
     </div>
@@ -48,7 +48,7 @@
     <p id="camera-note" class="note"></p>
   </section>
 
-  <section id="screen-review" class="screen" hidden>
+  <section id="screen-review" class="screen fill" hidden>
     <!-- The same top bar as a strip's own page (/strip). -->
     <nav class="toolbar">
       <div class="tool-group">
@@ -75,6 +75,6 @@
     <p class="links"><a id="wall-link-done" href="/wall" hidden>See everyone's strips</a></p>
   </section>
 </main>
-<script type="module" src="/booth/booth.js?v=5"></script>
+<script type="module" src="/booth/booth.js?v=6"></script>
 </body>
 </html>

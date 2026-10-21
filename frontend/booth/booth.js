@@ -2,7 +2,7 @@
    one strip on paper. */
 
 import { compose, iconRects, loadFont, sampleShots } from './js/strip.js?v=2';
-import { savedCode, saveCode, forgetCode, join, printStrip } from './js/api.js?v=3';
+import { savedCode, saveCode, forgetCode, join, printStrip, whileBusy } from './js/api.js?v=4';
 import { unpack, encodePNG } from '../js/photo.js?v=4';
 
 const $ = (id) => document.getElementById(id);
@@ -12,8 +12,6 @@ const $ = (id) => document.getElementById(id);
 const FIRST_COUNT = 5;
 const NEXT_COUNT = 3;
 const SHOTS = 4;
-const BUSY_RETRY_MS = 3000;
-const BUSY_GIVE_UP_MS = 90_000;
 
 let code = '';
 let theme = null;
@@ -55,6 +53,9 @@ function drawIcons(canvas, names, scale) {
 
 /* ---- the code ------------------------------------------------------------------- */
 
+/* True if the code opens an event, false if it doesn't, null if it
+   couldn't be checked (offline, or too many tries): then it may still be
+   good. */
 async function enterCode(typed) {
   $('code-error').textContent = '';
   let t;
@@ -62,7 +63,7 @@ async function enterCode(typed) {
     t = await join(typed);
   } catch (e) {
     $('code-error').textContent = `Couldn't check that code: ${e.message}`;
-    return false;
+    return null;
   }
   if (!t) {
     $('code-error').textContent = "That code doesn't open an event. Check the sign and try again.";
@@ -205,33 +206,24 @@ $('print').addEventListener('click', async () => {
   if (!strip) return;
   $('print').disabled = true;
   const status = $('print-status');
-  const started = Date.now();
+  const png = encodePNG(strip.bits, 384, strip.h);
 
-  for (;;) {
-    status.textContent = 'Printing...';
-    try {
-      await printStrip(code, encodePNG(strip.bits, 384, strip.h));
-      show('done');
-      return;
-    } catch (e) {
-      if (e.status === 409 && /busy/i.test(e.message) && Date.now() - started < BUSY_GIVE_UP_MS) {
-        status.textContent = 'Someone else is printing. Waiting for the printer...';
-        await sleep(BUSY_RETRY_MS);
-        continue;
-      }
-      if (e.status === 404) {
-        status.textContent = 'This event has closed.';
-        forgetCode();
-        return;
-      }
-      if (e.status === 429) {
-        status.textContent = "That's a lot of strips! Wait a minute and try again.";
-      } else {
-        status.textContent = `Didn't print: ${e.message}`;
-      }
-      $('print').disabled = false;
+  try {
+    await whileBusy(
+      () => { status.textContent = 'Printing...'; return printStrip(code, png); },
+      () => { status.textContent = 'Someone else is printing. Waiting for the printer...'; },
+    );
+    show('done');
+  } catch (e) {
+    if (e.status === 404) {
+      status.textContent = 'This event has closed.';
+      forgetCode();
       return;
     }
+    status.textContent = e.status === 429
+      ? "That's a lot of strips! Wait a minute and try again."
+      : `Didn't print: ${e.message}`;
+    $('print').disabled = false;
   }
 });
 
@@ -252,6 +244,7 @@ const start = linked || savedCode();
 if (start) {
   enterCode(start).then((ok) => {
     if (ok) return;
+    if (ok === null) { show('code'); return; } // keep it for next time
     forgetCode();
     // A bad link says why; a stale remembered code just asks for a new one.
     if (!linked) $('code-error').textContent = '';

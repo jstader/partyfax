@@ -1,10 +1,8 @@
 /* One strip, opened from the wall (/strip#<id>): keep it, share it, or print
    it again. Only for guests who have the event's code. */
 
-import { savedCode, join, stripBlob, reprint } from './js/api.js?v=3';
+import { savedCode, join, stripBlob, reprint, whileBusy } from './js/api.js?v=4';
 
-const BUSY_RETRY_MS = 3000;
-const BUSY_GIVE_UP_MS = 90_000;
 // Saved copies are enlarged: 384 dots wide is a thumbnail in a photo album.
 // A whole multiple, without smoothing, so the dots stay crisp squares.
 const SAVE_SCALE = 3;
@@ -48,31 +46,30 @@ $('save').addEventListener('click', () => {
 $('reprint').addEventListener('click', async () => {
   const status = $('status');
   $('reprint').disabled = true;
-  const started = Date.now();
-  for (;;) {
-    status.textContent = 'Printing...';
-    try {
-      await reprint(code, id);
-      status.textContent = 'Printed! Grab it from the printer.';
-      break;
-    } catch (e) {
-      if (e.status === 409 && /busy/i.test(e.message) && Date.now() - started < BUSY_GIVE_UP_MS) {
-        status.textContent = 'Someone else is printing. Waiting for the printer...';
-        await new Promise((r) => setTimeout(r, BUSY_RETRY_MS));
-        continue;
-      }
-      status.textContent = e.status === 429
-        ? "That's a lot of strips! Wait a minute and try again."
-        : `Didn't print: ${e.message}`;
-      break;
-    }
+  try {
+    await whileBusy(
+      () => { status.textContent = 'Printing...'; return reprint(code, id); },
+      () => { status.textContent = 'Someone else is printing. Waiting for the printer...'; },
+    );
+    status.textContent = 'Printed! Grab it from the printer.';
+  } catch (e) {
+    status.textContent = e.status === 429
+      ? "That's a lot of strips! Wait a minute and try again."
+      : `Didn't print: ${e.message}`;
   }
   $('reprint').disabled = false;
 });
 
 async function start() {
   if (!code || !id) { location.replace(code ? '/wall' : '/'); return; }
-  const theme = await join(code);
+  let theme;
+  try {
+    theme = await join(code);
+  } catch (e) {
+    $('status').textContent = `Couldn't check the event code: ${e.message}`;
+    $('reprint').disabled = true;
+    return;
+  }
   if (!theme) { location.replace('/'); return; }
   title = theme.title;
   document.title = `${theme.title} - photo strip`;
