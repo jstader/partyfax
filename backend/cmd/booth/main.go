@@ -54,6 +54,7 @@ func main() {
 		dispatcher: upstream.NewDispatcherClient(*dispatcherURL, &http.Client{}),
 		store:      store,
 		access:     access,
+		guesses:    newGuesses(),
 		log:        log,
 	}
 

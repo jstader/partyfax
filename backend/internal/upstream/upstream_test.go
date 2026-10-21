@@ -88,3 +88,22 @@ func TestRenderStripUsesTheStripRoute(t *testing.T) {
 		t.Errorf("posted to %s as %s", path, ct)
 	}
 }
+
+func TestReply(t *testing.T) {
+	for _, tt := range []struct {
+		err    error
+		code   int
+		msg    string
+		hidden bool
+	}{
+		{&Error{Service: "dispatcher", Status: 409, Msg: "out of paper"}, 409, "out of paper", false},
+		{&Error{Service: "dispatcher", Status: 503, Msg: "printer is offline"}, 503, "printer is offline", false},
+		{&Error{Service: "renderer", Status: 500, Msg: "panic"}, 502, "renderer is unavailable", true},
+		{errors.New("connection refused"), 502, "renderer is unavailable", true},
+	} {
+		code, msg, hidden := Reply("renderer", tt.err)
+		if code != tt.code || msg != tt.msg || hidden != tt.hidden {
+			t.Errorf("Reply(%v) = %d %q %v, want %d %q %v", tt.err, code, msg, hidden, tt.code, tt.msg, tt.hidden)
+		}
+	}
+}

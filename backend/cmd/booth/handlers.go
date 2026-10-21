@@ -19,6 +19,7 @@ import (
 	"github.com/jstader/partyfax/backend/internal/doc"
 	"github.com/jstader/partyfax/backend/internal/httpx"
 	"github.com/jstader/partyfax/backend/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/render"
 	"github.com/jstader/partyfax/backend/internal/timeouts"
 	"github.com/jstader/partyfax/backend/internal/upstream"
 )
@@ -44,6 +45,7 @@ type api struct {
 	dispatcher upstream.Dispatcher
 	store      *Store
 	access     *Access // nil: admin is off
+	guesses    *guesses
 	log        *slog.Logger
 }
 
@@ -92,9 +94,8 @@ func (a *api) join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e, ok := a.store.ByCode(in.Code)
+	e, ok := a.byCode(w, r, in.Code)
 	if !ok {
-		a.fail(w, r, http.StatusNotFound, "no open event with that code")
 		return
 	}
 
@@ -110,14 +111,12 @@ func (a *api) print(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, maxStrip)
-	png, cfg, err := doc.ReadStrip(r.Body)
-	if err != nil {
-		a.fail(w, r, http.StatusBadRequest, err.Error())
+	pic, rows, ok := a.readStrip(w, r)
+	if !ok {
 		return
 	}
 
-	a.printStrip(w, r, png, cfg.Height, e.ID, true)
+	a.printStrip(w, r, pic, rows, e.ID, true)
 }
 
 // reprint prints a strip from the event's wall again, for a guest who wants
@@ -138,19 +137,19 @@ func (a *api) reprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	png, err := a.store.StripPNG(e.ID, in.ID, false)
+	pic, err := a.store.StripPNG(e.ID, in.ID, false)
 	if err != nil {
 		a.fail(w, r, http.StatusNotFound, errNoStrip.Error())
 		return
 	}
-	cfg, err := doc.ValidateStrip(bytes.NewReader(png))
+	cfg, err := doc.ValidateStrip(bytes.NewReader(pic))
 	if err != nil {
 		a.log.ErrorContext(r.Context(), "stored strip is unreadable", "event", e.ID, "strip", in.ID, "err", err)
 		a.fail(w, r, http.StatusInternalServerError, "that strip can't be printed")
 		return
 	}
 
-	a.printStrip(w, r, png, cfg.Height, e.ID, false)
+	a.printStrip(w, r, pic, cfg.Height, e.ID, false)
 }
 
 // strips is the event's wall: what's been printed, newest first.
@@ -182,13 +181,28 @@ func (a *api) strip(w http.ResponseWriter, r *http.Request) {
 	a.servePNG(w, r, e.ID, r.PathValue("id"), false)
 }
 
-// guest is the event the request's code opens, or a 404 already written.
+// guest is the event the request's code header opens, or the refusal
+// already written.
 func (a *api) guest(w http.ResponseWriter, r *http.Request) (Event, bool) {
-	e, ok := a.store.ByCode(r.Header.Get(codeHeader))
-	if !ok {
-		a.fail(w, r, http.StatusNotFound, "no open event with that code")
+	return a.byCode(w, r, r.Header.Get(codeHeader))
+}
+
+// byCode is the open event a typed code opens: a 404 if none does, a 429 if
+// this address has guessed too often (see guesses).
+func (a *api) byCode(w http.ResponseWriter, r *http.Request, typed string) (Event, bool) {
+	addr := logging.ClientIP(r)
+	if !a.guesses.allowed(addr) {
+		a.fail(w, r, http.StatusTooManyRequests, "too many wrong codes, try again in a few minutes")
+		return Event{}, false
 	}
-	return e, ok
+	e, ok := a.store.ByCode(typed)
+	if !ok {
+		a.guesses.wrong(addr)
+		a.fail(w, r, http.StatusNotFound, "no open event with that code")
+		return Event{}, false
+	}
+	a.guesses.right(addr)
+	return e, true
 }
 
 /* ---- the host ----------------------------------------------------------- */
@@ -205,9 +219,44 @@ func (a *api) requireAccess(next http.Handler) http.Handler {
 			a.fail(w, r, http.StatusForbidden, "sign in through Cloudflare Access")
 			return
 		}
+		if !sameSite(r) {
+			a.log.WarnContext(r.Context(), "admin refused", "err", "request from another site",
+				"origin", r.Header.Get("Origin"), "fetch_site", r.Header.Get("Sec-Fetch-Site"))
+			a.fail(w, r, http.StatusForbidden, "admin changes come from the admin page only")
+			return
+		}
 		a.log.InfoContext(r.Context(), "admin", "email", email, "method", r.Method, "path", r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// sameSite is false for a change another site's page sent. The Access
+// token rides on a cookie, which a browser may attach to a form another
+// site submits; what that form can't fake is where the browser says it came
+// from. Reading is always fine: another site can't see the answer.
+func sameSite(r *http.Request) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" {
+		return site == "same-origin"
+	}
+	// Browsers older than Sec-Fetch-Site still send Origin on a POST.
+	if origin := r.Header.Get("Origin"); origin != "" {
+		return origin == "https://"+r.Host
+	}
+	return true // not a browser: curl, or a test
+}
+
+// wantType refuses a body that isn't the type the handler reads. JSON and
+// PNG are not types a plain HTML form can send, so with sameSite this keeps
+// the admin API to the admin page.
+func (a *api) wantType(w http.ResponseWriter, r *http.Request, want string) bool {
+	if ct, _, _ := strings.Cut(r.Header.Get("Content-Type"), ";"); strings.TrimSpace(ct) != want {
+		a.fail(w, r, http.StatusUnsupportedMediaType, "send "+want)
+		return false
+	}
+	return true
 }
 
 func (a *api) listEvents(w http.ResponseWriter, r *http.Request) {
@@ -393,18 +442,22 @@ func (a *api) testPrint(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, http.StatusNotFound, errNoEvent.Error())
 		return
 	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, maxStrip)
-	png, cfg, err := doc.ReadStrip(r.Body)
-	if err != nil {
-		a.fail(w, r, http.StatusBadRequest, err.Error())
+	if !a.wantType(w, r, "image/png") {
 		return
 	}
 
-	a.printStrip(w, r, png, cfg.Height, e.ID, false)
+	pic, rows, ok := a.readStrip(w, r)
+	if !ok {
+		return
+	}
+
+	a.printStrip(w, r, pic, rows, e.ID, false)
 }
 
 func (a *api) readEvent(w http.ResponseWriter, r *http.Request) (Event, bool) {
+	if !a.wantType(w, r, "application/json") {
+		return Event{}, false
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxEvent)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
@@ -422,10 +475,35 @@ func (a *api) readEvent(w http.ResponseWriter, r *http.Request) (Event, bool) {
 
 /* ---- shared ------------------------------------------------------------- */
 
+// readStrip reads an uploaded strip and redraws it: the size is checked from
+// the header before anything is decoded, then the picture is rebuilt one bit
+// a pixel, exactly as it prints. What is printed, kept and shown to other
+// guests is that redrawing, never the file the phone sent, so nothing else
+// the file carried (metadata, trailing bytes) goes any further.
+func (a *api) readStrip(w http.ResponseWriter, r *http.Request) ([]byte, int, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxStrip)
+	b, cfg, err := doc.ReadStrip(r.Body)
+	if err != nil {
+		a.fail(w, r, http.StatusBadRequest, err.Error())
+		return nil, 0, false
+	}
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		a.fail(w, r, http.StatusBadRequest, "not a PNG: "+err.Error())
+		return nil, 0, false
+	}
+	var out bytes.Buffer
+	if err := (&png.Encoder{CompressionLevel: png.BestCompression}).Encode(&out, render.OneBit(img)); err != nil {
+		a.fail(w, r, http.StatusInternalServerError, "could not redraw the strip")
+		return nil, 0, false
+	}
+	return out.Bytes(), cfg.Height, true
+}
+
 // printStrip renders, prints and, if keep, stores. The trace id is the job
 // id and the strip id, so one grep follows a strip from upload to paper.
-func (a *api) printStrip(w http.ResponseWriter, r *http.Request, png []byte, rows int, eventID string, keep bool) {
-	payload, err := a.renderer.RenderStrip(r.Context(), png)
+func (a *api) printStrip(w http.ResponseWriter, r *http.Request, pic []byte, rows int, eventID string, keep bool) {
+	payload, err := a.renderer.RenderStrip(r.Context(), pic)
 	if err != nil {
 		a.upstreamFailed(w, r, "renderer", err)
 		return
@@ -443,7 +521,7 @@ func (a *api) printStrip(w http.ResponseWriter, r *http.Request, png []byte, row
 	a.log.InfoContext(r.Context(), "printed strip", "event", eventID, "rows", rows, "bytes", len(payload), "kept", keep)
 
 	if keep {
-		if _, err := a.store.AddStrip(eventID, id, png); err != nil {
+		if _, err := a.store.AddStrip(eventID, id, pic); err != nil {
 			// On paper already; the wall missing one strip is the lesser harm.
 			a.log.ErrorContext(r.Context(), "cannot keep strip", "event", eventID, "err", err)
 		}
@@ -470,25 +548,14 @@ func (a *api) servePNG(w http.ResponseWriter, r *http.Request, eventID, id strin
 	_, _ = w.Write(b)
 }
 
-// The statuses the dispatcher and renderer use that are about the request or
-// the printer, so the guest's page can say something useful: 400 a bad
-// strip, 409 no paper or busy, 503 offline, 504 no confirmation. The same
-// set as the public site's gateway.
-var passThrough = map[int]bool{
-	http.StatusBadRequest:         true,
-	http.StatusConflict:           true,
-	http.StatusServiceUnavailable: true,
-	http.StatusGatewayTimeout:     true,
-}
-
+// upstreamFailed answers for a failed call to the renderer or dispatcher
+// (see upstream.Reply).
 func (a *api) upstreamFailed(w http.ResponseWriter, r *http.Request, service string, err error) {
-	var ue *upstream.Error
-	if errors.As(err, &ue) && passThrough[ue.Status] {
-		a.fail(w, r, ue.Status, ue.Msg)
-		return
+	code, msg, hidden := upstream.Reply(service, err)
+	if hidden {
+		a.log.ErrorContext(r.Context(), "upstream failed", "service", service, "err", err)
 	}
-	a.log.ErrorContext(r.Context(), "upstream failed", "service", service, "err", err)
-	a.fail(w, r, http.StatusBadGateway, service+" is unavailable")
+	a.fail(w, r, code, msg)
 }
 
 func (a *api) storeFailed(w http.ResponseWriter, r *http.Request, err error) {
@@ -504,12 +571,7 @@ func (a *api) storeFailed(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 func (a *api) fail(w http.ResponseWriter, r *http.Request, code int, msg string) {
-	level := slog.LevelWarn
-	if code >= http.StatusInternalServerError {
-		level = slog.LevelError
-	}
-	a.log.Log(r.Context(), level, "rejected", "reason", msg)
-	httpx.WriteJSON(w, code, map[string]string{"error": msg})
+	httpx.Fail(a.log, w, r, code, msg)
 }
 
 // orEmpty makes an empty list encode as [] rather than null.

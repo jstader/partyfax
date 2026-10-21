@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"mime"
@@ -17,6 +16,7 @@ import (
 	"github.com/jstader/partyfax/backend/internal/httpx"
 	"github.com/jstader/partyfax/backend/internal/logging"
 	"github.com/jstader/partyfax/backend/internal/timeouts"
+	"github.com/jstader/partyfax/backend/internal/upstream"
 )
 
 // maxBody caps the body before anything reads it. Validate stops a large
@@ -25,8 +25,8 @@ import (
 const maxBody = 64 << 10 // 64 KiB
 
 type api struct {
-	renderer   Renderer
-	dispatcher Dispatcher
+	renderer   upstream.Renderer
+	dispatcher upstream.Dispatcher
 	// photos is a directory to keep a copy of every picture printed, or
 	// empty. Text is logged in full; this is the same courtesy for pictures.
 	photos string
@@ -285,38 +285,16 @@ func (a *api) state(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, st)
 }
 
-// passThrough are statuses an internal service chose deliberately: 400 bad
-// document, 409 no paper or busy, 503 offline, 504 no confirmation from the
-// printer. Anything else is a 502.
-var passThrough = map[int]bool{
-	http.StatusBadRequest:         true,
-	http.StatusConflict:           true,
-	http.StatusServiceUnavailable: true,
-	http.StatusGatewayTimeout:     true,
-}
-
+// upstreamFailed answers for a failed call to the renderer or dispatcher
+// (see upstream.Reply).
 func (a *api) upstreamFailed(w http.ResponseWriter, r *http.Request, service string, err error) {
-	var ue *upstreamError
-	if errors.As(err, &ue) && passThrough[ue.Status] {
-		a.fail(w, r, ue.Status, ue.Msg)
-		return
+	code, msg, hidden := upstream.Reply(service, err)
+	if hidden {
+		a.log.ErrorContext(r.Context(), "upstream failed", "service", service, "err", err)
 	}
-
-	// The underlying error only appears here; fail() records the response.
-	a.log.ErrorContext(r.Context(), "upstream failed", "service", service, "err", err)
-	a.fail(w, r, http.StatusBadGateway, service+" is unavailable")
+	a.fail(w, r, code, msg)
 }
 
-// fail writes an error response and records it. 4xx is the caller's fault and
-// routine, so it warns; 5xx is ours and errors.
 func (a *api) fail(w http.ResponseWriter, r *http.Request, code int, msg string) {
-	level := slog.LevelWarn
-	if code >= http.StatusInternalServerError {
-		level = slog.LevelError
-	}
-
-	// The middleware's request line carries everything but the reason.
-	a.log.Log(r.Context(), level, "rejected", "reason", msg)
-
-	httpx.WriteJSON(w, code, map[string]string{"error": msg})
+	httpx.Fail(a.log, w, r, code, msg)
 }

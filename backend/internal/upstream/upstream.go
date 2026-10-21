@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -56,6 +57,29 @@ type Error struct {
 
 func (e *Error) Error() string {
 	return fmt.Sprintf("%s replied %d: %s", e.Service, e.Status, e.Msg)
+}
+
+// passThrough are statuses an internal service chose deliberately: 400 a bad
+// document or picture, 409 no paper or busy, 503 offline, 504 no
+// confirmation from the printer. They tell the person printing something
+// useful, so they reach them as they are.
+var passThrough = map[int]bool{
+	http.StatusBadRequest:         true,
+	http.StatusConflict:           true,
+	http.StatusServiceUnavailable: true,
+	http.StatusGatewayTimeout:     true,
+}
+
+// Reply is what a front end tells its caller when a call to service failed:
+// the service's own status and words if they are one of those, otherwise a
+// 502 that names the service. hidden is true in that second case, when err
+// is no longer in the reply and the caller should log it.
+func Reply(service string, err error) (code int, msg string, hidden bool) {
+	var ue *Error
+	if errors.As(err, &ue) && passThrough[ue.Status] {
+		return ue.Status, ue.Msg, false
+	}
+	return http.StatusBadGateway, service + " is unavailable", true
 }
 
 type jsonClient struct {

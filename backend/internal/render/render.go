@@ -196,6 +196,22 @@ func dark(c color.Color) bool {
 	return color.GrayModel.Convert(c).(color.Gray).Y < 128
 }
 
+// OneBit is img as the printer sees it: every pixel black or white by the
+// same rule as the raster, in a two-colour palette, which PNG stores at one
+// bit a pixel. Nothing of the original file survives but the picture.
+func OneBit(img image.Image) *image.Paletted {
+	b := img.Bounds()
+	out := image.NewPaletted(image.Rect(0, 0, b.Dx(), b.Dy()), color.Palette{color.White, color.Black})
+	for y := range b.Dy() {
+		for x := range b.Dx() {
+			if dark(img.At(b.Min.X+x, b.Min.Y+y)) {
+				out.SetColorIndex(x, y, 1)
+			}
+		}
+	}
+	return out
+}
+
 func writeHeader(buf *bytes.Buffer) {
 	buf.Write(alignCentre)
 

@@ -1,4 +1,4 @@
-// Package httpx is what the three services' HTTP layers share: JSON replies
+// Package httpx is what the services' HTTP layers share: JSON replies
 // and running a server until it is told to stop.
 package httpx
 
@@ -25,6 +25,18 @@ func WriteJSON(w http.ResponseWriter, code int, v any) {
 
 func WriteError(w http.ResponseWriter, code int, msg string) {
 	WriteJSON(w, code, map[string]string{"error": msg})
+}
+
+// Fail is WriteError for the front ends, recorded too: 4xx is the caller's
+// fault and routine, so it warns; 5xx is ours and errors. The request line
+// the logging middleware writes carries everything but the reason.
+func Fail(log *slog.Logger, w http.ResponseWriter, r *http.Request, code int, msg string) {
+	level := slog.LevelWarn
+	if code >= http.StatusInternalServerError {
+		level = slog.LevelError
+	}
+	log.Log(r.Context(), level, "rejected", "reason", msg)
+	WriteError(w, code, msg)
 }
 
 // Health answers for the process alone. Nothing downstream is consulted, so

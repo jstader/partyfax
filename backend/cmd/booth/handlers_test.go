@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"image"
+	"image/color"
 	"image/png"
 	"io"
 	"log/slog"
@@ -68,7 +69,7 @@ func newRig(t *testing.T, edit func(*Event)) *rig {
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	r, d := &fakeRenderer{}, &fakeDispatcher{}
-	a := &api{renderer: r, dispatcher: d, store: s, log: log}
+	a := &api{renderer: r, dispatcher: d, store: s, guesses: newGuesses(), log: log}
 	return &rig{api: a, h: logging.Edge(log)(a.routes()), r: r, d: d, ev: e}
 }
 
@@ -93,6 +94,60 @@ func stripPNG(t *testing.T, w, h int) []byte {
 		t.Fatal(err)
 	}
 	return b.Bytes()
+}
+
+// samePicture says whether two PNGs print the same: every pixel on the same
+// side of black and white.
+func samePicture(t *testing.T, a, b []byte) bool {
+	t.Helper()
+	ia, err1 := png.Decode(bytes.NewReader(a))
+	ib, err2 := png.Decode(bytes.NewReader(b))
+	if err1 != nil || err2 != nil {
+		t.Fatalf("decoding: %v, %v", err1, err2)
+	}
+	if ia.Bounds() != ib.Bounds() {
+		return false
+	}
+	dark := func(c color.Color) bool { return color.GrayModel.Convert(c).(color.Gray).Y < 128 }
+	for y := ia.Bounds().Min.Y; y < ia.Bounds().Max.Y; y++ {
+		for x := ia.Bounds().Min.X; x < ia.Bounds().Max.X; x++ {
+			if dark(ia.At(x, y)) != dark(ib.At(x, y)) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// Whatever else the phone's file carried stays behind: only the picture is
+// printed, kept and shown.
+func TestStripsAreRedrawn(t *testing.T) {
+	g := newRig(t, nil)
+	img := image.NewGray(image.Rect(0, 0, doc.PhotoWidth, 40))
+	for i := range img.Pix {
+		img.Pix[i] = byte(i * 7) // greys, which print as black or white
+	}
+	var b bytes.Buffer
+	png.Encode(&b, img)
+	body := append(b.Bytes(), []byte("<script>alert(1)</script>")...)
+
+	if rec := g.do("POST", "/api/booth/print", g.ev.Code, bytes.NewReader(body)); rec.Code != http.StatusOK {
+		t.Fatalf("print = %d %s", rec.Code, rec.Body)
+	}
+	kept, err := g.api.store.StripPNG(g.ev.ID, g.d.ids[0], false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(kept, []byte("script")) || !bytes.Equal(kept, g.r.got) {
+		t.Error("the kept strip is not the redrawn one that printed")
+	}
+	if !samePicture(t, kept, b.Bytes()) {
+		t.Error("redrawing changed what prints")
+	}
+	cfg, _ := png.DecodeConfig(bytes.NewReader(kept))
+	if _, ok := cfg.ColorModel.(color.Palette); !ok {
+		t.Errorf("kept as %T, want a two-colour palette", cfg.ColorModel)
+	}
 }
 
 func TestJoin(t *testing.T) {
@@ -124,7 +179,7 @@ func TestPrintKeepsTheStripForTheWall(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("print = %d %s", rec.Code, rec.Body)
 	}
-	if !bytes.Equal(g.r.got, body) || len(g.d.ids) != 1 {
+	if !samePicture(t, g.r.got, body) || len(g.d.ids) != 1 {
 		t.Fatal("strip didn't go through the renderer and dispatcher")
 	}
 
@@ -134,7 +189,7 @@ func TestPrintKeepsTheStripForTheWall(t *testing.T) {
 	}
 
 	rec = g.do("GET", "/api/booth/strips/"+strips[0].ID, g.ev.Code, nil)
-	if rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), body) || rec.Header().Get("Content-Type") != "image/png" {
+	if rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), g.r.got) || rec.Header().Get("Content-Type") != "image/png" {
 		t.Errorf("fetching the strip = %d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
 }
@@ -226,7 +281,7 @@ func TestAdminCreatesAndValidatesEvents(t *testing.T) {
 	tok := f.token(t, map[string]any{"alg": "RS256", "kid": "k1"}, goodClaims())
 
 	good := `{"title":"Wedding","subtitle":"","font":"script","frame":"double","icons":["heart"],"active":true,"wall":false}`
-	rec := g.do("POST", "/api/booth/admin/events", "", strings.NewReader(good), accessHeader, tok)
+	rec := g.do("POST", "/api/booth/admin/events", "", strings.NewReader(good), accessHeader, tok, "Content-Type", "application/json")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create = %d %s", rec.Code, rec.Body)
 	}
@@ -237,12 +292,42 @@ func TestAdminCreatesAndValidatesEvents(t *testing.T) {
 	}
 
 	bad := strings.Replace(good, `"double"`, `"wavy"`, 1)
-	if rec := g.do("POST", "/api/booth/admin/events", "", strings.NewReader(bad), accessHeader, tok); rec.Code != http.StatusBadRequest {
+	if rec := g.do("POST", "/api/booth/admin/events", "", strings.NewReader(bad), accessHeader, tok, "Content-Type", "application/json"); rec.Code != http.StatusBadRequest {
 		t.Errorf("bad frame = %d, want 400", rec.Code)
 	}
 	unknown := strings.Replace(good, `"wall":false`, `"wall":false,"id":"x","extra":1`, 1)
-	if rec := g.do("POST", "/api/booth/admin/events", "", strings.NewReader(unknown), accessHeader, tok); rec.Code != http.StatusBadRequest {
+	if rec := g.do("POST", "/api/booth/admin/events", "", strings.NewReader(unknown), accessHeader, tok, "Content-Type", "application/json"); rec.Code != http.StatusBadRequest {
 		t.Errorf("unknown field = %d, want 400", rec.Code)
+	}
+}
+
+// The Access token is a cookie a browser may attach to another site's form;
+// such a form can't send JSON or claim to come from the admin page.
+func TestAdminRefusesOtherSites(t *testing.T) {
+	g := newRig(t, nil)
+	f := newFakeAccess(t)
+	g.api.access = f.access(now)
+	tok := f.token(t, map[string]any{"alg": "RS256", "kid": "k1"}, goodClaims())
+	good := `{"title":"Wedding","subtitle":"","font":"script","frame":"double","icons":[],"active":true,"wall":false}`
+	newCode := "/api/booth/admin/events/" + g.ev.ID + "/code"
+
+	cases := []struct {
+		name, method, path, body string
+		hdr                      []string
+		want                     int
+	}{
+		{"form post as text", "POST", "/api/booth/admin/events", good, []string{"Content-Type", "text/plain"}, http.StatusUnsupportedMediaType},
+		{"cross-site fetch", "POST", newCode, "", []string{"Sec-Fetch-Site", "cross-site"}, http.StatusForbidden},
+		{"same-site but other origin", "POST", newCode, "", []string{"Sec-Fetch-Site", "same-site"}, http.StatusForbidden},
+		{"old browser, other origin", "POST", newCode, "", []string{"Origin", "https://evil.example"}, http.StatusForbidden},
+		{"the admin page", "POST", newCode, "", []string{"Sec-Fetch-Site", "same-origin"}, http.StatusOK},
+		{"reading from anywhere", "GET", "/api/booth/admin/events", "", []string{"Sec-Fetch-Site", "cross-site"}, http.StatusOK},
+	}
+	for _, c := range cases {
+		hdr := append([]string{accessHeader, tok}, c.hdr...)
+		if rec := g.do(c.method, c.path, "", strings.NewReader(c.body), hdr...); rec.Code != c.want {
+			t.Errorf("%s = %d, want %d", c.name, rec.Code, c.want)
+		}
 	}
 }
 
@@ -252,7 +337,7 @@ func TestTestPrintIsNotKept(t *testing.T) {
 	g.api.access = f.access(now)
 	tok := f.token(t, map[string]any{"alg": "RS256", "kid": "k1"}, goodClaims())
 
-	rec := g.do("POST", "/api/booth/admin/events/"+g.ev.ID+"/test", "", bytes.NewReader(stripPNG(t, doc.PhotoWidth, 100)), accessHeader, tok)
+	rec := g.do("POST", "/api/booth/admin/events/"+g.ev.ID+"/test", "", bytes.NewReader(stripPNG(t, doc.PhotoWidth, 100)), accessHeader, tok, "Content-Type", "image/png")
 	if rec.Code != http.StatusOK || len(g.d.ids) != 1 {
 		t.Fatalf("test print = %d %s", rec.Code, rec.Body)
 	}
@@ -271,7 +356,7 @@ func TestReprintPrintsTheStoredStripWithoutKeepingItAgain(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("reprint = %d %s", rec.Code, rec.Body)
 	}
-	if len(g.d.ids) != 2 || !bytes.Equal(g.r.got, body) {
+	if len(g.d.ids) != 2 || !samePicture(t, g.r.got, body) {
 		t.Error("reprint didn't send the stored strip to the printer")
 	}
 	if n := len(g.api.store.Strips(g.ev.ID, true)); n != 1 {

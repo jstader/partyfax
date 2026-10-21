@@ -17,6 +17,7 @@ import (
 
 	"github.com/jstader/partyfax/backend/internal/doc"
 	"github.com/jstader/partyfax/backend/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/upstream"
 )
 
 type fakeRenderer struct {
@@ -43,7 +44,7 @@ func (f *fakeRenderer) RenderPhoto(_ context.Context, png []byte) ([]byte, error
 
 type fakeDispatcher struct {
 	err     error
-	state   State
+	state   upstream.State
 	calls   int
 	gotID   string
 	gotPayl []byte
@@ -57,11 +58,11 @@ func (f *fakeDispatcher) Print(_ context.Context, id string, payload []byte) err
 	return f.err
 }
 
-func (f *fakeDispatcher) State(context.Context) (State, error) {
+func (f *fakeDispatcher) State(context.Context) (upstream.State, error) {
 	return f.state, f.err
 }
 
-func newAPI(r Renderer, d Dispatcher) *api {
+func newAPI(r upstream.Renderer, d upstream.Dispatcher) *api {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	wall, _ := OpenWall("") // in memory: cannot fail
 
@@ -247,7 +248,7 @@ func TestPrintRejectsBadDocument(t *testing.T) {
 // A document that will not render must never reach the dispatcher: there is no
 // point occupying a printer to discover the input was bad.
 func TestPrintDoesNotDispatchWhenRenderFails(t *testing.T) {
-	r := &fakeRenderer{err: &upstreamError{Service: "renderer", Status: 500}}
+	r := &fakeRenderer{err: &upstream.Error{Service: "renderer", Status: 500}}
 	d := &fakeDispatcher{}
 
 	rec := do(t, newAPI(r, d), http.MethodPost, "/api/print", validBody)
@@ -279,7 +280,7 @@ func TestUpstreamStatusMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := &fakeDispatcher{err: &upstreamError{
+			d := &fakeDispatcher{err: &upstream.Error{
 				Service: "dispatcher", Status: tt.from, Msg: "upstream said so",
 			}}
 
@@ -334,7 +335,7 @@ func TestRejectionsAreLogged(t *testing.T) {
 }
 
 func TestState(t *testing.T) {
-	d := &fakeDispatcher{state: State{Online: true}}
+	d := &fakeDispatcher{state: upstream.State{Online: true}}
 
 	rec := do(t, newAPI(&fakeRenderer{}, d), http.MethodGet, "/api/state", "")
 
@@ -342,7 +343,7 @@ func TestState(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 
-	var got State
+	var got upstream.State
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}

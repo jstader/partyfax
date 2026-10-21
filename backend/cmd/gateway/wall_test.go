@@ -16,6 +16,7 @@ import (
 
 	"github.com/jstader/partyfax/backend/internal/doc"
 	"github.com/jstader/partyfax/backend/internal/logging"
+	"github.com/jstader/partyfax/backend/internal/upstream"
 )
 
 func textPrint(id string, at int) Print {
@@ -195,7 +196,7 @@ func TestOnlyConfirmedPrintsGoOnTheWall(t *testing.T) {
 	}
 }
 
-var errOffline = &upstreamError{Service: "dispatcher", Status: http.StatusServiceUnavailable, Msg: "printer is offline"}
+var errOffline = &upstream.Error{Service: "dispatcher", Status: http.StatusServiceUnavailable, Msg: "printer is offline"}
 
 func TestPrintsEndpoint(t *testing.T) {
 	a := newAPI(&fakeRenderer{}, &fakeDispatcher{})

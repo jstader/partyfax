@@ -365,3 +365,22 @@ func TestRenderStripIsBare(t *testing.T) {
 		t.Error("strip carries the FAX masthead")
 	}
 }
+
+// OneBit draws exactly what the raster prints, as a two-colour palette.
+func TestOneBit(t *testing.T) {
+	img := image.NewGray(image.Rect(0, 0, 16, 2))
+	for i := range img.Pix {
+		img.Pix[i] = byte(i * 8)
+	}
+	out := OneBit(img)
+	if len(out.Palette) != 2 {
+		t.Fatalf("palette of %d colours", len(out.Palette))
+	}
+	for y := range 2 {
+		for x := range 16 {
+			if got, want := out.ColorIndexAt(x, y) == 1, dark(img.At(x, y)); got != want {
+				t.Errorf("(%d,%d) black = %v, want %v", x, y, got, want)
+			}
+		}
+	}
+}

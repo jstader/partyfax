@@ -12,6 +12,7 @@ import (
 	"github.com/jstader/partyfax/backend/internal/httpx"
 	"github.com/jstader/partyfax/backend/internal/logging"
 	"github.com/jstader/partyfax/backend/internal/timeouts"
+	"github.com/jstader/partyfax/backend/internal/upstream"
 )
 
 // Rendering is quick, so its client has a flat timeout. Printing waits on
@@ -67,8 +68,8 @@ func main() {
 	// A client each, because the timeouts differ. The dispatcher's has none
 	// of its own: every print carries its own deadline.
 	a := &api{
-		renderer:   NewRendererClient(*rendererURL, &http.Client{Timeout: renderTimeout}),
-		dispatcher: NewDispatcherClient(*dispatcherURL, &http.Client{}),
+		renderer:   upstream.NewRendererClient(*rendererURL, &http.Client{Timeout: renderTimeout}),
+		dispatcher: upstream.NewDispatcherClient(*dispatcherURL, &http.Client{}),
 		photos:     *photosDir,
 		wall:       wall,
 		log:        log,
