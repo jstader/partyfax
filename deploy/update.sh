@@ -6,6 +6,8 @@
 #
 #   ./deploy/update.sh
 #   FULL_BUILD=1 ./deploy/update.sh   rebuild every image on fresh bases
+#   FULL_BUILD=1 NO_PULL=1 ...        the same without pulling main first:
+#                                     the monthly rebuild (partyfax-rebuild.timer)
 
 set -euo pipefail
 
@@ -14,7 +16,9 @@ cd "$(dirname "$0")/.."
 # The checkout matters too: the frontend, the Caddyfile and the Mosquitto
 # config are mounted from it, not baked into images.
 before=$(git rev-parse HEAD)
-git pull --ff-only
+if [[ "${NO_PULL:-0}" != 1 ]]; then
+	git pull --ff-only
+fi
 after=$(git rev-parse HEAD)
 
 # Default build attestations carry a timestamp, so every build would be a new

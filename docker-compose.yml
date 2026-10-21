@@ -148,9 +148,10 @@ services:
     # Events and every strip printed. Not rotated; strips are ~15 KB each.
     volumes:
       - booth:/var/lib/booth
-    # It fetches Cloudflare Access's signing keys, so it needs the internet
-    # (the LAN stays blocked by the host firewall).
-    networks: [app]
+    # It fetches Cloudflare Access's signing keys, so it alone of the app
+    # services has a way out to the internet (the LAN stays blocked by the
+    # host firewall).
+    networks: [app, egress]
     depends_on: [renderer, dispatcher]
 
   mosquitto:
@@ -175,9 +176,14 @@ services:
     networks: [app]
 
 # cloudflared sits on edge only: it reaches Caddy and nothing behind it.
+# app is internal: no route out at all. The renderer reads pictures
+# strangers upload; if one ever got the better of it, it could not fetch
+# tools or send anything anywhere. Only the booth also joins egress.
 networks:
   edge:
   app:
+    internal: true
+  egress:
 
 volumes:
   booth:

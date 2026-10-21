@@ -39,9 +39,10 @@
 	}
 
 	# The page shows a refusal's "error" field, so say it in its words.
+	# Prints and event codes both end up here.
 	handle_errors 429 {
 		header Content-Type application/json
-		respond `{"error":"too many prints, try again in a few minutes"}` 429
+		respond `{"error":"too many tries, wait a few minutes and try again"}` 429
 	}
 }
 
@@ -217,9 +218,10 @@ http://photobooth.nilanet.live {
 		# Clean page URLs: /prints serves prints.html.
 		try_files {path} {path}.html
 
-		# The photobooth's pages belong to its own host.
-		@booth path /booth /booth/*
-		respond @booth 404
+		# The photobooth's pages belong to its own host, and the tests and
+		# package.json are for development, not visitors.
+		@notsite path /booth /booth/* /test/* /package.json
+		respond @notsite 404
 
 		import static_cache
 		file_server

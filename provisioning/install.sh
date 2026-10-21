@@ -9,6 +9,7 @@
 #     ban could only ever ban the tunnel. FAX_BANNED in .env bans visitors.
 #   - Host firewall (firewall/apply-rules.sh), reapplied at boot
 #   - unattended-upgrades
+#   - A monthly rebuild of every image on fresh bases (systemd/)
 #
 # No backups here, on purpose: Proxmox's nightly job backs up the whole
 # container, so this box holds no NAS credentials and needs no route to the
@@ -106,7 +107,13 @@ systemctl enable --now partyfax-firewall.service
 echo "== unattended-upgrades =="
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unattended-upgrades
 
+echo "== Monthly image rebuild =="
+install -m 0644 "$SCRIPT_DIR/systemd/partyfax-rebuild.service" /etc/systemd/system/partyfax-rebuild.service
+install -m 0644 "$SCRIPT_DIR/systemd/partyfax-rebuild.timer" /etc/systemd/system/partyfax-rebuild.timer
+systemctl daemon-reload
+systemctl enable --now partyfax-rebuild.timer
+
 echo "== Status =="
-systemctl is-active crowdsec crowdsec-firewall-bouncer partyfax-firewall unattended-upgrades
+systemctl is-active crowdsec crowdsec-firewall-bouncer partyfax-firewall unattended-upgrades partyfax-rebuild.timer
 iptables -S INPUT
 iptables -S DOCKER-USER

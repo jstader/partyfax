@@ -96,9 +96,19 @@ Cloudflare Zero Trust:
    `CF_ACCESS_TEAM_DOMAIN`, and run `docker compose up -d booth`.
 
 The booth checks the Access token itself as well, so if the Access app is
-ever deleted, admin stays closed rather than open. Guests need no login,
-only the event code. Codes are 6 characters, and joining is limited to 10
-tries a minute per address, so codes can't realistically be guessed.
+ever deleted, admin stays closed rather than open. It also refuses admin
+changes another site's page sends (the Access login is a cookie a browser
+might attach to them). In the Access app's settings, **Cookie settings →
+SameSite attribute: Strict** stops a browser sending it in the first place.
+
+Guests need no login, only the event code. Codes are 6 characters (887
+million of them), and every request carries one, so the booth counts wrong
+codes wherever they arrive: an address gets 10 wrong in 10 minutes (50 once
+it has shown a right code, since a party shares one Wi-Fi address), and
+everyone together 1,000 an hour, after which only addresses that have shown
+a right code lately get in until the hour is up. Caddy also limits joining
+to 10 a minute per address. Turn an event off, or give it a new code, once
+the party is over: a code works for as long as the event is open.
 
 Booth limits per address: 3 strips a minute, 30 an hour, 60 a day. Strips
 are kept in the `booth` volume, `/var/lib/docker/volumes/fax_booth`, and are
@@ -113,6 +123,20 @@ cd /root/partyfax && ./deploy/update.sh
 It pulls the checkout (the frontend, Caddyfile and Mosquitto config are
 mounted from it), rebuilds what changed, restarts it, and restarts Mosquitto
 or Caddy only when their config changed.
+
+Once a month, `partyfax-rebuild.timer` (installed by
+`provisioning/install.sh`) runs it with `FULL_BUILD=1 NO_PULL=1`: every
+image rebuilt on fresh base images, nothing new from main. That is how
+security fixes in Alpine, Caddy and Go's standard library arrive.
+`systemctl list-timers partyfax-rebuild` shows when it runs next, and
+`journalctl -u partyfax-rebuild` how the last one went.
+
+## Networks
+
+`cloudflared` is alone on `edge` with Caddy. Everything else is on `app`,
+which is internal: no route to the internet. Only the booth also joins
+`egress`, to fetch Cloudflare Access's signing keys. The host firewall
+(`provisioning/firewall/`) keeps every container off the LAN either way.
 
 ## Rate limit
 

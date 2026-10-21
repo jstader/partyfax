@@ -1,0 +1,12 @@
+# The first Sunday of each month, mid-morning Pacific: well clear of the
+# 03:15-03:35 nightly backup, and someone is likely around if it goes wrong.
+[Unit]
+Description=Monthly rebuild of partyfax images
+
+[Timer]
+OnCalendar=Sun *-*-01..07 10:00:00 America/Los_Angeles
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

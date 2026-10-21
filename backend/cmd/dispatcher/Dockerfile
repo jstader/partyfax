@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o /dispatcher ./cmd/dispatcher
 
-FROM alpine:3.21
+FROM alpine:3.24
 # Needed the moment the broker URL becomes ssl://. Cheap to include now rather
 # than debugging an x509 error later.
 RUN apk add --no-cache ca-certificates

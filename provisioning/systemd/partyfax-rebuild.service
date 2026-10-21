@@ -1,0 +1,14 @@
+# Rebuild every image on fresh base images, without deploying anything new
+# from main. Alpine, Caddy and Go's standard library get security fixes the
+# repo never sees; a deploy only rebuilds what changed, so this catches the
+# rest. Run by partyfax-rebuild.timer.
+[Unit]
+Description=Rebuild partyfax images on fresh bases
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=FULL_BUILD=1 NO_PULL=1
+ExecStart=/root/partyfax/deploy/update.sh
