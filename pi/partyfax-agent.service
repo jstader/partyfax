@@ -12,10 +12,44 @@ ExecStart=/usr/local/bin/partyfax-agent
 Restart=always
 RestartSec=5
 
+# The agent reads the broker over the network and writes to the printer;
+# that is all it is allowed to do. If it were ever subverted it gets no
+# root, no other devices, no files to write, nothing of the kernel.
 NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+KeyringMode=private
+RemoveIPC=yes
+
+# The printer only: usblp's character devices (major 180, "usb" in
+# /proc/devices). Not PrivateDevices, which would hide /dev/usb entirely.
+DevicePolicy=closed
+DeviceAllow=char-usb rw
+
+# Sockets for the broker connection and name lookups; nothing else.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
 
 [Install]
 WantedBy=multi-user.target
