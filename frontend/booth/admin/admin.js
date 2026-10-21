@@ -2,8 +2,8 @@
    strips. Cloudflare Access signs the host in before this page loads; the
    booth service checks that sign-in again on every call. */
 
-import { FRAMES, FONTS, ICONS, MAX_ICONS, compose, sampleShots } from '../js/strip.js?v=2';
-import { unpack, encodePNG } from '../../js/photo.js?v=4';
+import { FRAMES, FONTS, ICONS, MAX_ICONS, compose, sampleShots } from '../js/strip.js';
+import { unpack, encodePNG } from '../../js/photo.js';
 
 const $ = (id) => document.getElementById(id);
 const API = '/api/booth/admin/events';

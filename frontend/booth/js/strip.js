@@ -6,8 +6,8 @@
    The geometry, frames and icons are plain data and rectangles, so the tests
    can check them without a browser; only compose() needs a canvas. */
 
-import { dither } from '../../js/photo.js?v=4';
-import { shrink } from '../../js/scale.js?v=4';
+import { dither } from '../../js/photo.js';
+import { shrink } from '../../js/scale.js';
 
 export const W = 384;           // dots across the paper
 export const MAX_ROWS = 1400;   // the server's limit for a strip (doc.StripMaxRows)

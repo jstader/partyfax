@@ -114,6 +114,16 @@ Booth limits per address: 3 strips a minute, 30 an hour, 60 a day. Strips
 are kept in the `booth` volume, `/var/lib/docker/volumes/fax_booth`, and are
 in the nightly Proxmox backup like everything else.
 
+## Browser caching
+
+Caddy tells browsers to check every page, script and stylesheet with the
+server each time (`no-cache`; unchanged files come back as a quick 304),
+so a deploy reaches everyone at once. Cloudflare overrides that with four
+hours on scripts and stylesheets unless **Caching → Configuration →
+Browser Cache TTL** is **Respect Existing Headers**. Keep it that way: the
+pages load their scripts by plain name, with no version number to force a
+fresh copy.
+
 ## Every deploy
 
 ```sh

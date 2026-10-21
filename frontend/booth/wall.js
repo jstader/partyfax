@@ -3,8 +3,8 @@
    whole strip at a time, swiped through. Tapping one opens it on its own
    page (/strip). Only for guests who have the event's code. */
 
-import { savedCode, join, strips, stripBlob } from './js/api.js?v=4';
-import { Deck } from './js/deck.js?v=1';
+import { savedCode, join, strips, stripBlob } from './js/api.js';
+import { Deck } from './js/deck.js';
 
 const POLL_MS = 10_000;
 const $ = (id) => document.getElementById(id);

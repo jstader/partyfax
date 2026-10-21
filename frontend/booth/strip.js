@@ -1,7 +1,7 @@
 /* One strip, opened from the wall (/strip#<id>): keep it, share it, or print
    it again. Only for guests who have the event's code. */
 
-import { savedCode, join, stripBlob, reprint, whileBusy } from './js/api.js?v=4';
+import { savedCode, join, stripBlob, reprint, whileBusy } from './js/api.js';
 
 // Saved copies are enlarged: 384 dots wide is a thumbnail in a photo album.
 // A whole multiple, without smoothing, so the dots stay crisp squares.

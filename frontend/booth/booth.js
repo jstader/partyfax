@@ -1,9 +1,9 @@
 /* The photobooth: a code, a countdown, four photos from the front camera,
    one strip on paper. */
 
-import { compose, iconRects, loadFont, sampleShots } from './js/strip.js?v=2';
-import { savedCode, saveCode, forgetCode, join, printStrip, whileBusy } from './js/api.js?v=4';
-import { unpack, encodePNG } from '../js/photo.js?v=4';
+import { compose, iconRects, loadFont, sampleShots } from './js/strip.js';
+import { savedCode, saveCode, forgetCode, join, printStrip, whileBusy } from './js/api.js';
+import { unpack, encodePNG } from '../js/photo.js';
 
 const $ = (id) => document.getElementById(id);
 

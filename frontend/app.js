@@ -4,8 +4,8 @@
 
 import { rowsOf, longestPrefix } from './js/paper.js';
 import { TOOLS, toolsIn, effective, reconcile, rangeHas, runs, toDocument } from './js/styles.js';
-import { fit, dither, unpack, encodePNG } from './js/photo.js?v=4';
-import { shrink, decode } from './js/scale.js?v=4';
+import { fit, dither, unpack, encodePNG } from './js/photo.js';
+import { shrink, decode } from './js/scale.js';
 import { sheet } from './js/gesture.js';
 
 /* Read from CSS so --cols and --rows stay the single source of truth. */

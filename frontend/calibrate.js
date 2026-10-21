@@ -7,8 +7,8 @@
    what it can and waits out the limit for the rest by itself. */
 
 // Versioned, so a browser holding an older copy cannot pair it with this page.
-import { fit, dither, unpack, encodePNG } from './js/photo.js?v=4';
-import { shrink, decode } from './js/scale.js?v=4';
+import { fit, dither, unpack, encodePNG } from './js/photo.js';
+import { shrink, decode } from './js/scale.js';
 
 export const VARIANTS = [
   { label: 'Floyd-Steinberg (original)', algorithm: 'fs', gamma: 1, sharpen: 0 },
