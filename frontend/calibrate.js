@@ -94,7 +94,7 @@ async function printOne(p) {
 async function countdown(note, ms) {
   for (let left = ms; left > 0; left -= 1000) {
     note.textContent = `rate limit: retrying in ${Math.ceil(left / 1000)}s`;
-    status.textContent = 'waiting for the print limit (5 a minute); leave this page open';
+    status.textContent = 'waiting for the print limit (10 a minute); leave this page open';
     await new Promise((r) => setTimeout(r, 1000));
   }
 }
