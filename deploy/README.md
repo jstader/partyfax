@@ -99,7 +99,10 @@ The booth checks the Access token itself as well, so if the Access app is
 ever deleted, admin stays closed rather than open. It also refuses admin
 changes another site's page sends (the Access login is a cookie a browser
 might attach to them). In the Access app's settings, **Cookie settings →
-SameSite attribute: Strict** stops a browser sending it in the first place.
+SameSite attribute: Lax** stops a browser sending it with another site's
+requests in the first place. Not Strict: the login comes back from
+`<team>.cloudflareaccess.com`, a browser won't send a Strict cookie on that
+redirect, and Access loops ("too many redirects").
 
 Guests need no login, only the event code. Codes are 6 characters (887
 million of them), and every request carries one, so the booth counts wrong
