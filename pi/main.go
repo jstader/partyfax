@@ -229,7 +229,7 @@ func handle(path string, j job) []byte {
 
 	logger.Info("printing", "job", j.id, "bytes", len(j.payload))
 
-	switch err := p.write(j.payload, deadline); err {
+	switch err := p.printJob(j.payload, deadline); err {
 	case nil:
 		logger.Info("printed", "job", j.id)
 		return ackOK

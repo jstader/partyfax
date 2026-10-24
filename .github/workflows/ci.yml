@@ -69,6 +69,11 @@ jobs:
           cache-dependency-path: pi/go.sum
       - run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
+      # On the runner's own architecture: the tests run here, not on a Pi.
+      - run: go test ./...
+        env:
+          GOARCH: amd64
+          GOARM: ""
       - run: go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_SHA::7}" -o partyfax-agent .
       - uses: actions/upload-artifact@v4
         with:
