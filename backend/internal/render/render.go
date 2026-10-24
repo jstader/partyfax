@@ -25,6 +25,17 @@ var (
 	alignLeft   = []byte{0x1b, 'a', 0}
 	alignCentre = []byte{0x1b, 'a', 1}
 
+	// ESC 7 n1 n2 n3, before a picture: heat at most (n1+1)*8 dots at a
+	// time, for n2*10 us, resting n3*10 us between. Dark pictures heat
+	// most of a line at once, and the current spike knocked the printer
+	// off USB mid-strip (the Pi saw "disabled by hub (EMI?)" and a
+	// reconnect half a second later). The common default is 7, 80, 2: 64
+	// dots. 48 dots cuts the spike by a quarter; heat time and rest are
+	// the defaults, so the darkness should stay as calibrated. The printer
+	// keeps it until it's switched off, so text printed after a picture
+	// gets it too, which costs text nothing it would notice.
+	gentleHeat = []byte{0x1b, '7', 5, 80, 2}
+
 	// GS ! n, where the high nibble is width-1 and the low nibble height-1.
 	// 0x11 is double both ways.
 	sizeNormal = []byte{0x1d, '!', 0x00}
@@ -136,6 +147,7 @@ func RenderPhoto(img image.Image) []byte {
 	var buf bytes.Buffer
 
 	buf.Write(reset)
+	buf.Write(gentleHeat)
 	writeHeader(&buf)
 	raster(&buf, img)
 	writeFooter(&buf)
@@ -151,6 +163,7 @@ func RenderStrip(img image.Image) []byte {
 	var buf bytes.Buffer
 
 	buf.Write(reset)
+	buf.Write(gentleHeat)
 	rasterWithMargin(&buf, img, stripMargin)
 	buf.Write(feed(tailFeed))
 

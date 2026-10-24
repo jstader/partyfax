@@ -334,8 +334,8 @@ func TestRenderPhotoIsOneCommand(t *testing.T) {
 func TestRenderPhotoKeepsTheFrame(t *testing.T) {
 	got := RenderPhoto(image.NewGray(image.Rect(0, 0, doc.PhotoWidth, 1)))
 
-	if !bytes.HasPrefix(got, reset) || !bytes.HasSuffix(got, feed(tailFeed)) {
-		t.Error("photo receipt is missing the reset or the feed")
+	if !bytes.HasPrefix(got, cat(reset, gentleHeat)) || !bytes.HasSuffix(got, feed(tailFeed)) {
+		t.Error("photo receipt is missing the reset, the heating limit or the feed")
 	}
 
 	if !bytes.Contains(got, []byte(title)) || !bytes.Contains(got, []byte(footer[0])) {
@@ -355,9 +355,9 @@ func TestRenderStripIsBare(t *testing.T) {
 	got := RenderStrip(img)
 
 	rows := doc.StripMaxRows + stripMargin
-	want := cat(reset, rasterHeader(rows), make([]byte, 48*rows), feed(tailFeed))
+	want := cat(reset, gentleHeat, rasterHeader(rows), make([]byte, 48*rows), feed(tailFeed))
 	if !bytes.Equal(got, want) {
-		t.Errorf("strip is %d bytes, want exactly reset, one %d-row raster (the strip and its blank margin) and the feed (%d bytes)",
+		t.Errorf("strip is %d bytes, want exactly reset, the heating limit, one %d-row raster (the strip and its blank margin) and the feed (%d bytes)",
 			len(got), rows, len(want))
 	}
 
