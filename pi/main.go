@@ -32,9 +32,7 @@ const (
 	// switched on as the job arrives to enumerate.
 	attachWait = 10 * time.Second
 	// The most one job may take, arrival to ack, the attach wait included.
-	// Long: pictures heat few dots at a time, so a dark strip can take the
-	// better part of a minute.
-	jobDeadline = 60 * time.Second
+	jobDeadline = 20 * time.Second
 	// Matches the broker's max_packet_size. A square photo is about 19 KB, a
 	// photobooth strip up to about 66 KB.
 	maxJob = 128 * 1024

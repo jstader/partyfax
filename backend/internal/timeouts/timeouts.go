@@ -3,10 +3,9 @@
 // then the dispatcher waiting for its ack, then the gateway waiting for the
 // dispatcher, then the servers' write timeout around both.
 //
-// They are flat, not sized to the payload, and generous: pictures are sent
-// with the printer heating few dots at a time (render.gentleHeat), so a dark
-// photobooth strip can take the better part of a minute. The ceiling over
-// all of them is Cloudflare's: it ends any request at 100 seconds.
+// They are flat, not sized to the payload: over USB a photo prints in about
+// a second, so the only slow job is one whose printer is missing or stalled,
+// and the firmware bounds that itself.
 package timeouts
 
 import "time"
@@ -14,7 +13,7 @@ import "time"
 // Firmware is how long the printer end may take to ack a job: the Pi agent's
 // jobDeadline (pi/main.go), plus two seconds of slack for a transfer caught
 // mid-flight. Change them together.
-const Firmware = 60*time.Second + 2*time.Second
+const Firmware = 20*time.Second + 2*time.Second
 
 // Ack is how long the dispatcher waits for the firmware's answer: longer than
 // the firmware's own limit, so a printer that gives up gets to say why rather
@@ -28,4 +27,4 @@ const Print = Ack + 3*time.Second
 // Write is for the gateway's and dispatcher's HTTP servers. It must exceed
 // Print, or a print legitimately waiting on the printer is cut off before it
 // can answer.
-const Write = 75 * time.Second
+const Write = 35 * time.Second

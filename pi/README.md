@@ -156,7 +156,7 @@ firmware: it dials `wss://partyfax.nilanet.live/mqtt`, subscribes to
 `fax/printer-1/job/+`, checks for paper with `DLE EOT 4`, writes the
 server's ESC/POS to `/dev/usb/lp0`, and acks. The server can't tell the two
 apart. The timeouts (10 s for the printer to appear,
-60 s per job) are what `backend/internal/timeouts` expects.
+20 s per job) are what `backend/internal/timeouts` expects.
 
 Settings live in `/etc/partyfax/agent.env`. Only the password is required;
 see `agent.env.example` for the rest. To build the binary yourself instead

@@ -55,14 +55,12 @@ export async function join(code) {
 
 /* Print a finished strip. Resolves once it is on paper; throws with the
    server's reason otherwise, and .status for the caller to act on. */
-// The server's own limits end a print by 75 seconds at worst (a dark strip
-// prints slowly); past 90 the connection is taken for dead.
 export async function printStrip(code, png) {
   const res = await fetch('/api/booth/print', {
     method: 'POST',
     headers: { 'Content-Type': 'image/png', 'X-Event-Code': code },
     body: png,
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(45000),
   });
   if (res.ok) return res.json();
   const err = new Error(await reason(res));
@@ -76,7 +74,7 @@ export async function reprint(code, id) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Event-Code': code },
     body: JSON.stringify({ id }),
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(45000),
   });
   if (res.ok) return res.json();
   const err = new Error(await reason(res));
