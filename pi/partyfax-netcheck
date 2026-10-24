@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# Keeps the Pi on the network, run every two minutes by
+# partyfax-netcheck.timer. On Oct 23 2026 the Pi's Wi-Fi setting vanished
+# and it sat offline until someone came with a screen and keyboard; this is
+# the screen and keyboard. In order:
+#
+#   - no Wi-Fi connection saved at all: put back the copy the installer
+#     made (/etc/partyfax/network-backup) and reload NetworkManager
+#   - the internet unreachable for 10 minutes: restart the Wi-Fi radio
+#   - unreachable for 30 minutes: reboot, if up long enough that this
+#     isn't a reboot loop faster than every half hour
+#
+# Everything it does is logged: journalctl -t partyfax-netcheck
+
+set -uo pipefail
+
+BACKUP=/etc/partyfax/network-backup
+STATE=/run/partyfax-netcheck.failures
+RADIO_AFTER=5  # checks, two minutes apart
+REBOOT_AFTER=15
+MIN_UPTIME=1800
+
+log() { logger -t partyfax-netcheck "$*"; }
+
+has_wifi() { nmcli -t -f TYPE connection show 2>/dev/null | grep -qx '802-11-wireless'; }
+
+if ! has_wifi && [ -d "$BACKUP" ]; then
+	log "no Wi-Fi connection saved; restoring from $BACKUP"
+	for f in "$BACKUP"/*; do
+		[ -e "$f" ] || continue
+		case "$f" in
+		*.nmconnection) dest=/etc/NetworkManager/system-connections ;;
+		*.yaml) dest=/etc/netplan ;;
+		*) continue ;;
+		esac
+		[ -e "$dest/$(basename "$f")" ] || install -m 600 "$f" "$dest/"
+	done
+	command -v netplan >/dev/null && netplan generate
+	nmcli connection reload
+	sleep 20
+fi
+
+# The internet, not the server: a server outage is no reason to reboot.
+if curl -s -o /dev/null -m 10 https://1.1.1.1 || curl -s -o /dev/null -m 10 https://9.9.9.9; then
+	[ -s "$STATE" ] && log "back online after $(cat "$STATE") failed checks"
+	rm -f "$STATE"
+	exit 0
+fi
+
+n=$(($(cat "$STATE" 2>/dev/null || echo 0) + 1))
+echo "$n" >"$STATE"
+log "internet unreachable ($n checks in a row); $(nmcli -t -f DEVICE,STATE,CONNECTION device | tr '\n' ' ')"
+
+if [ "$n" -eq "$RADIO_AFTER" ]; then
+	log "restarting the Wi-Fi radio"
+	nmcli radio wifi off
+	sleep 5
+	nmcli radio wifi on
+elif [ "$n" -ge "$REBOOT_AFTER" ]; then
+	up=$(cut -d. -f1 /proc/uptime)
+	if [ "$up" -ge "$MIN_UPTIME" ]; then
+		log "rebooting"
+		systemctl reboot
+	fi
+fi

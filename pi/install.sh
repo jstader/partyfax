@@ -90,6 +90,57 @@ else
 	echo "NetworkManager not found; skipping."
 fi
 
+say "Keeping the Pi on the network"
+# On Oct 23 2026 the Pi's Wi-Fi setting vanished and it sat offline until
+# someone came with a screen and keyboard. The cause wasn't found: the logs
+# went with the reboots. So, from here on:
+#
+#   - cloud-init, which wrote the Wi-Fi setting from Imager on first boot,
+#     may not write network settings again
+#   - a copy of the Wi-Fi setting is kept, refreshed whenever this runs
+#     with Wi-Fi saved (never overwritten with nothing)
+#   - partyfax-netcheck puts that copy back if the setting disappears,
+#     restarts Wi-Fi after 10 minutes offline, and reboots after 30
+#   - the hardware watchdog reboots the Pi if it freezes
+#   - the system log survives reboots (Raspberry Pi OS keeps it in memory
+#     by default, to spare the card), capped at 50 MB
+if [ -d /etc/cloud/cloud.cfg.d ]; then
+	echo 'network: {config: disabled}' >/etc/cloud/cloud.cfg.d/99-partyfax-no-network.cfg
+fi
+
+BACKUP=/etc/partyfax/network-backup
+if nmcli -t -f TYPE connection show 2>/dev/null | grep -qx '802-11-wireless'; then
+	install -d -m 700 "$BACKUP"
+	rm -f "$BACKUP"/*
+	cp -p /etc/NetworkManager/system-connections/*.nmconnection /etc/netplan/*.yaml "$BACKUP"/ 2>/dev/null || true
+	chmod 600 "$BACKUP"/* 2>/dev/null || true
+	echo "Wi-Fi setting backed up ($(ls "$BACKUP" | wc -l) files)."
+else
+	echo "No Wi-Fi connection saved right now, so the backup is left as it was."
+fi
+
+for f in partyfax-netcheck.service partyfax-netcheck.timer; do
+	curl -fsSL "https://raw.githubusercontent.com/$REPO/main/pi/$f" -o "$tmp"
+	install -m 0644 "$tmp" "/etc/systemd/system/$f"
+done
+curl -fsSL "https://raw.githubusercontent.com/$REPO/main/pi/partyfax-netcheck" -o "$tmp"
+install -m 0755 "$tmp" /usr/local/sbin/partyfax-netcheck
+
+# The Zero's watchdog can't count past about 15 seconds.
+install -d /etc/systemd/system.conf.d
+printf '[Manager]\nRuntimeWatchdogSec=14s\n' >/etc/systemd/system.conf.d/partyfax-watchdog.conf
+
+# 50- sorts after Raspberry Pi OS's 40-rpi-volatile-storage.conf, so it wins.
+install -d /etc/systemd/journald.conf.d
+printf '[Journal]\nStorage=persistent\nSystemMaxUse=50M\n' >/etc/systemd/journald.conf.d/50-partyfax-persistent.conf
+
+systemctl daemon-reload
+systemctl daemon-reexec
+systemctl restart systemd-journald
+journalctl --flush 2>/dev/null || true
+systemctl enable --now partyfax-netcheck.timer
+echo "Done. Log of what it does: journalctl -t partyfax-netcheck"
+
 say "SSH: keys only"
 # Raspberry Pi Imager's "public-key only" option already does this; this
 # keeps it so after a re-flash that chose passwords. Only once the person

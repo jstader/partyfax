@@ -1,0 +1,11 @@
+# Every two minutes, starting five minutes after boot so a normal boot has
+# connected before the first check.
+[Unit]
+Description=partyfax network check, every two minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

@@ -88,8 +88,12 @@ curl -fsSL https://raw.githubusercontent.com/jstader/partyfax/main/pi/install.sh
 the agent and asks for the **printer's broker password** (paste it; nothing
 shows as you type). It also locks the Pi down: SSH by key only, automatic
 security updates (rebooting at 04:00 only when an update needs it), and
-Bluetooth off. Last, it sets the agent to start on every boot and, if the
-printer is already plugged in, offers to print a test receipt.
+Bluetooth off. It keeps the Pi on the network by itself: a backup of the
+Wi-Fi setting, a check every two minutes that puts it back if it disappears,
+restarts Wi-Fi after 10 minutes offline and reboots after 30, a watchdog that
+reboots a frozen Pi, and a system log that survives reboots. Last, it sets
+the agent to start on every boot and, if the printer is already plugged in,
+offers to print a test receipt.
 
 ## 4. Connect the printer
 
@@ -131,6 +135,7 @@ after a restart shows the version (the commit it was built from).
 | Online, but prints say "did not confirm" | The printer isn't attached. Check that it's on and plugged into **USB**, not PWR, and that `ls /dev/usb/lp0` finds it. |
 | `ls /dev/usb/lp0` finds nothing | Run `lsusb` with the printer on. If the printer isn't listed, try another cable or OTG adapter: some cables only carry power. |
 | Keeps disconnecting and reconnecting | Weak Wi-Fi or power saving. Make sure you rebooted after installing, and move the Pi closer to the router. |
+| Offline, and the Pi doesn't answer `ssh` or ping | Give it 30 minutes: the network check restarts Wi-Fi, then reboots. After that, a screen and keyboard: `nmcli connection show` lists the saved networks. If there's no Wi-Fi one, `sudo nmcli device wifi connect "<network>" password "<password>" name partyfax-wifi`, then run the installer again so the backup has it. Once it's back, `journalctl -t partyfax-netcheck` and `journalctl -b -1` show what happened. |
 | Test print: "paper sensor did not answer" | Harmless. The printer can't report its paper level, so jobs print without that check. |
 
 To print a test receipt yourself:

@@ -1,0 +1,7 @@
+[Unit]
+Description=partyfax network check
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/partyfax-netcheck
