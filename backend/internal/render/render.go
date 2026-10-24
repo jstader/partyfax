@@ -27,14 +27,15 @@ var (
 
 	// ESC 7 n1 n2 n3, before a picture: heat at most (n1+1)*8 dots at a
 	// time, for n2*10 us, resting n3*10 us between. Dark pictures heat
-	// most of a line at once, and the current spike knocked the printer
-	// off USB mid-strip (the Pi saw "disabled by hub (EMI?)" and a
-	// reconnect half a second later). The common default is 7, 80, 2: 64
-	// dots. 48 dots cuts the spike by a quarter; heat time and rest are
-	// the defaults, so the darkness should stay as calibrated. The printer
-	// keeps it until it's switched off, so text printed after a picture
-	// gets it too, which costs text nothing it would notice.
-	gentleHeat = []byte{0x1b, '7', 5, 80, 2}
+	// most of a line at once, and strips kept stopping partway: the Pi saw
+	// "disabled by hub (EMI?)" and the printer reconnect half a second
+	// later. The common default is 7, 80, 2: 64 dots. 48 (5) didn't help,
+	// so 16 (1): a quarter of the default, and a solid black line takes
+	// four times as long, which the timeouts allow for. Heat time and rest
+	// are the defaults, so the darkness should stay as calibrated. The
+	// printer keeps it until it's switched off, so text printed after a
+	// picture gets it too, which costs text nothing it would notice.
+	gentleHeat = []byte{0x1b, '7', 1, 80, 2}
 
 	// GS ! n, where the high nibble is width-1 and the low nibble height-1.
 	// 0x11 is double both ways.
