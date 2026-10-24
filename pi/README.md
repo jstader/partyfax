@@ -92,7 +92,9 @@ Bluetooth off. It keeps the Pi on the network by itself: a backup of the
 Wi-Fi setting, a check every two minutes that puts it back if it disappears,
 restarts Wi-Fi after 10 minutes offline and reboots after 30, and a system
 log that survives reboots. (Raspberry Pi OS's own hardware watchdog already
-reboots a frozen Pi.) Last, it sets
+reboots a frozen Pi.) And it writes less to the SD card, so a power cut is
+less likely to catch a file half-written: swap stays in memory, and what the
+installer writes is saved to the card straight away. Last, it sets
 the agent to start on every boot and, if the printer is already plugged in,
 offers to print a test receipt.
 

@@ -145,6 +145,28 @@ journalctl --flush 2>/dev/null || true
 systemctl enable --now partyfax-netcheck.timer
 echo "Done. Log of what it does: journalctl -t partyfax-netcheck"
 
+say "Writing less to the card"
+# A power cut while the card is being written can leave a file empty (the
+# Pi lost its Wi-Fi setting once, and an installer run its agent). The
+# fewer writes, the smaller that window. What's left on purpose: the system
+# log (capped, above), updates, and NetworkManager's own settings. The root
+# filesystem is already mounted noatime, /tmp is in memory, and a damaged
+# filesystem is repaired at boot (fsck.repair=yes).
+#
+#   - swap stays in compressed memory (zram) and no longer spills idle
+#     pages to /var/swap on the card; the agent needs a fraction of the
+#     RAM. A drop-in, not an edit of /etc/rpi/swap.conf, so updates never
+#     stop to ask which version to keep. Raspberry Pi OS deletes the
+#     446 MB /var/swap itself at the next boot.
+#   - man-db's daily rebuild of the manual pages index is switched off
+if [ -e /etc/rpi/swap.conf ]; then
+	install -d /etc/rpi/swap.conf.d
+	printf '[Main]\nMechanism=zram\n' >/etc/rpi/swap.conf.d/50-partyfax.conf
+fi
+systemctl disable --now man-db.timer 2>/dev/null || true
+sync
+echo "Done. /var/swap goes at the next reboot."
+
 say "SSH: keys only"
 # Raspberry Pi Imager's "public-key only" option already does this; this
 # keeps it so after a re-flash that chose passwords. Only once the person

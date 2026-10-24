@@ -34,8 +34,10 @@ if ! has_wifi && [ -d "$BACKUP" ]; then
 		*.yaml) dest=/etc/netplan ;;
 		*) continue ;;
 		esac
-		[ -e "$dest/$(basename "$f")" ] || install -m 600 "$f" "$dest/"
+		# Missing, or left empty by a power cut mid-write.
+		[ -s "$dest/$(basename "$f")" ] || install -m 600 "$f" "$dest/"
 	done
+	sync
 	command -v netplan >/dev/null && netplan generate
 	nmcli connection reload
 	sleep 20
