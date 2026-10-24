@@ -30,6 +30,9 @@ tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 curl -fsSL "$BIN_URL" -o "$tmp"
 install -m 0755 "$tmp" /usr/local/bin/partyfax-agent
+# On the card now, not in a few seconds: a Pi that resets before then is
+# left with an empty file where the agent was.
+sync
 
 say "Creating the partyfax user"
 # lp owns /dev/usb/lp0, so membership is what lets the agent use the printer.
@@ -101,7 +104,6 @@ say "Keeping the Pi on the network"
 #     with Wi-Fi saved (never overwritten with nothing)
 #   - partyfax-netcheck puts that copy back if the setting disappears,
 #     restarts Wi-Fi after 10 minutes offline, and reboots after 30
-#   - the hardware watchdog reboots the Pi if it freezes
 #   - the system log survives reboots (Raspberry Pi OS keeps it in memory
 #     by default, to spare the card), capped at 50 MB
 if [ -d /etc/cloud/cloud.cfg.d ]; then
@@ -126,16 +128,18 @@ done
 curl -fsSL "https://raw.githubusercontent.com/$REPO/main/pi/partyfax-netcheck" -o "$tmp"
 install -m 0755 "$tmp" /usr/local/sbin/partyfax-netcheck
 
-# The Zero's watchdog can't count past about 15 seconds.
-install -d /etc/systemd/system.conf.d
-printf '[Manager]\nRuntimeWatchdogSec=14s\n' >/etc/systemd/system.conf.d/partyfax-watchdog.conf
+# Raspberry Pi OS already runs the hardware watchdog (a minute, which
+# reboots a frozen Pi). An earlier version of this script shortened it to
+# 14 seconds and reloaded systemd, which took longer than that on a Zero:
+# the watchdog reset the Pi mid-install. Undo it.
+rm -f /etc/systemd/system.conf.d/partyfax-watchdog.conf
 
 # 50- sorts after Raspberry Pi OS's 40-rpi-volatile-storage.conf, so it wins.
 install -d /etc/systemd/journald.conf.d
 printf '[Journal]\nStorage=persistent\nSystemMaxUse=50M\n' >/etc/systemd/journald.conf.d/50-partyfax-persistent.conf
 
+sync
 systemctl daemon-reload
-systemctl daemon-reexec
 systemctl restart systemd-journald
 journalctl --flush 2>/dev/null || true
 systemctl enable --now partyfax-netcheck.timer
@@ -201,6 +205,7 @@ else
 fi
 
 say "Starting the agent"
+sync
 systemctl enable --now partyfax-agent
 sleep 5
 journalctl -u partyfax-agent -n 5 --no-pager -o cat

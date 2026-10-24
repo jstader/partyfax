@@ -90,8 +90,9 @@ shows as you type). It also locks the Pi down: SSH by key only, automatic
 security updates (rebooting at 04:00 only when an update needs it), and
 Bluetooth off. It keeps the Pi on the network by itself: a backup of the
 Wi-Fi setting, a check every two minutes that puts it back if it disappears,
-restarts Wi-Fi after 10 minutes offline and reboots after 30, a watchdog that
-reboots a frozen Pi, and a system log that survives reboots. Last, it sets
+restarts Wi-Fi after 10 minutes offline and reboots after 30, and a system
+log that survives reboots. (Raspberry Pi OS's own hardware watchdog already
+reboots a frozen Pi.) Last, it sets
 the agent to start on every boot and, if the printer is already plugged in,
 offers to print a test receipt.
 
