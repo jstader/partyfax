@@ -201,6 +201,22 @@ printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgr
 	>/etc/apt/apt.conf.d/20auto-upgrades
 echo "Done. Daily, rebooting at 04:00 only when an update needs it."
 
+say "USB: the mainline driver"
+# Raspberry Pi OS drives the Zero's USB port with its own dwc_otg driver.
+# Partway through dark strips the printer drops off USB ("disabled by hub
+# (EMI?)"), and with dwc_otg that sometimes left the port taking no data at
+# all until the Pi rebooted, however often the printer was reset. Linux's own
+# dwc2 driver for the same controller rides the drop out: the next print
+# works. Takes effect at the next boot.
+CONFIG=/boot/firmware/config.txt
+if [ -f "$CONFIG" ] && ! grep -qx 'dtoverlay=dwc2,dr_mode=host' "$CONFIG"; then
+	printf '\n[all]\ndtoverlay=dwc2,dr_mode=host\n' >>"$CONFIG"
+	sync
+	echo "Done. Reboot to use it: sudo reboot"
+else
+	echo "Already set."
+fi
+
 say "Bluetooth off"
 # Nothing here uses it, and a radio stack that is listening is something to
 # attack from the street.

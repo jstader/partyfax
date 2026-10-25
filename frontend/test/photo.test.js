@@ -106,3 +106,24 @@ test('levels stretches the range to black and white', () => {
   levels(lum);
   assert.ok(Math.min(...lum) === 0 && Math.max(...lum) === 255);
 });
+
+test('maxInk prints pure black lighter, and leaves white alone', () => {
+  const w = 64, h = 64, rgba = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) {
+    const v = i % w < w / 2 ? 0 : 255;
+    rgba.set([v, v, v, 255], i * 4);
+  }
+  const share = (bits, x0, x1) => {
+    let black = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = x0; x < x1; x++) if (!(bits[y * (w >> 3) + (x >> 3)] & (0x80 >> (x & 7)))) black++;
+    }
+    return black / (h * (x1 - x0));
+  };
+  const full = dither(rgba, w, h);
+  const capped = dither(rgba, w, h, { maxInk: 0.75 });
+  // Away from the edge, where sharpening adds its own dots.
+  assert.equal(share(full, 4, 28), 1);
+  assert.ok(Math.abs(share(capped, 4, 28) - 0.8) < 0.05, `black prints ${share(capped, 4, 28)}, want about 0.8`);
+  assert.equal(share(capped, 36, 60), 0);
+});

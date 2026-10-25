@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { W, MAX_ROWS, SHOTS, FRAMES, FONTS, MAX_ICONS, ICONS, layout, frameRects, iconRects, blit, mirror } from '../booth/js/strip.js';
+import { W, MAX_ROWS, SHOTS, FRAMES, FONTS, MAX_ICONS, ICONS, PHOTO_INK, layout, frameRects, iconRects, blit, mirror } from '../booth/js/strip.js';
 
 const ICON_NAMES = Object.keys(ICONS);
 const themes = function* () {
@@ -100,4 +100,17 @@ test('mirror flips each row and twice is the original', () => {
   const once = mirror(px.slice(), 3, 2);
   assert.deepEqual([...once.slice(0, 4)], [8, 9, 10, 11]);
   assert.deepEqual([...mirror(once, 3, 2)], [...px]);
+});
+
+// Solid black down both edges heated part of every line, and dark strips
+// knocked the printer off USB: the film frame is a negative now, mostly white.
+test('the film frame inks under a third of its bands', () => {
+  const L = layout({ title: 'x', font: 'vt323', frame: 'film', icons: [] });
+  const band = L.side - 6;
+  const ink = frameRects('film', L).reduce((a, [, , w, h, white]) => a + (white ? 0 : w * h), 0);
+  assert.ok(ink < 0.3 * 2 * band * L.h, `film frame inks ${(ink / (2 * band * L.h) * 100).toFixed(0)}% of its bands`);
+});
+
+test('photos in a strip are capped below full black', () => {
+  assert.ok(PHOTO_INK > 0.5 && PHOTO_INK < 1);
 });

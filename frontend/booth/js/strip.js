@@ -25,6 +25,9 @@ export const FONTS = {
   script: { family: 'Pacifico', url: '/fonts/Pacifico-Regular.ttf', title: 40, subtitle: 20 },
 };
 export const MAX_ICONS = 6;   // repeats allowed: three pumpkins is three
+// How far a photo's darkest tones are lifted (photo.js lift). At 0.75 pure
+// black prints about 80% of its dots: Atkinson dithering keeps some darkness.
+export const PHOTO_INK = 0.75;
 
 /* ---- geometry ----------------------------------------------------------- */
 
@@ -104,12 +107,16 @@ export function frameRects(frame, L) {
     }
 
     case 'film': {
-      // Black bands down both sides, with white sprocket holes.
-      const band = L.side - 6;
-      r.push([0, 0, band, L.h], [W - band, 0, band, L.h]);
+      // A film negative down both sides: a line along each edge of the band
+      // and black sprocket holes, not a solid black band with white ones --
+      // about a third of the black. Solid black down both edges heated part
+      // of every line of the strip, and dark strips were knocking the
+      // printer off USB.
+      const band = L.side - 6, line = 1;
+      r.push([0, 0, line, L.h], [band - line, 0, line, L.h], [W - band, 0, line, L.h], [W - line, 0, line, L.h]);
       const hw = 10, hh = 14, step = 26;
       for (let y = 8; y + hh <= L.h - 8; y += step) {
-        r.push([(band - hw) >> 1, y, hw, hh, true], [W - band + ((band - hw) >> 1), y, hw, hh, true]);
+        r.push([(band - hw) >> 1, y, hw, hh], [W - band + ((band - hw) >> 1), y, hw, hh]);
       }
       break;
     }
@@ -317,7 +324,8 @@ export async function compose(theme, shots, date = new Date()) {
     if (px[i * 4] >= 128) bits[(i / W | 0) * stride + ((i % W) >> 3)] |= 0x80 >> (i % W & 7);
   }
 
-  // Then the photos, dithered with the calibrated defaults, straight in.
+  // Then the photos, dithered with the calibrated defaults, straight in, with
+  // the darkest tones lifted to PHOTO_INK (see lift in photo.js).
   L.windows.forEach((win, i) => {
     const shot = shots[i];
     if (!shot) return;
@@ -326,7 +334,7 @@ export async function compose(theme, shots, date = new Date()) {
     let sw = sw0, sh = sh0;
     if (sw / sh > want) sw = sh * want; else sh = sw / want;
     const rgba = mirror(shrink(shot, (sw0 - sw) / 2, (sh0 - sh) / 2, sw, sh, win.w, win.h), win.w, win.h);
-    blit(bits, W, dither(rgba, win.w, win.h), win.w, win.h, win.x, win.y);
+    blit(bits, W, dither(rgba, win.w, win.h, { maxInk: PHOTO_INK }), win.w, win.h, win.x, win.y);
   });
 
   return { bits, h: L.h };

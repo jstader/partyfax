@@ -21,7 +21,7 @@ export function fit(srcW, srcH, w, maxH) {
    Floyd-Steinberg's lone dots smear. Each is an option so the calibration
    page can print them side by side. The defaults are what won on this
    printer's paper (calibration, 2026-10-19): Atkinson, gamma 1.8, sharpened. */
-export const DEFAULTS = { algorithm: 'atkinson', gamma: 1.8, sharpen: 0.8, serpentine: false };
+export const DEFAULTS = { algorithm: 'atkinson', gamma: 1.8, sharpen: 0.8, serpentine: false, maxInk: 1 };
 
 /* Luminance, levels, sharpening, tone, then error diffusion. */
 export function dither(rgba, w, h, opts = {}) {
@@ -30,6 +30,7 @@ export function dither(rgba, w, h, opts = {}) {
   levels(lum);
   if (o.sharpen > 0) unsharp(lum, w, h, o.sharpen);
   if (o.gamma !== 1) tone(lum, o.gamma);
+  if (o.maxInk < 1) lift(lum, o.maxInk);
   return o.algorithm === 'atkinson' ? atkinson(lum, w, h) : floyd(lum, w, h, o.serpentine);
 }
 
@@ -77,6 +78,16 @@ export function unsharp(lum, w, h, amount) {
 
 /* A gamma above 1 lifts the middle and leaves black and white where they
    are: what the paper's dot gain takes away. In place. */
+/* The darkest tones lifted to maxInk of black, the lightest barely moved, so
+   pure black prints fewer dots (Atkinson keeps some darkness: 0.75 prints
+   about 80%). Fewer dots heated at once is less
+   current, and the photobooth's dark strips were knocking the printer off
+   USB. */
+export function lift(lum, maxInk) {
+  const floor = 255 * (1 - maxInk);
+  for (let i = 0; i < lum.length; i++) lum[i] = floor + lum[i] * maxInk;
+}
+
 export function tone(lum, gamma) {
   for (let i = 0; i < lum.length; i++) lum[i] = 255 * Math.pow(lum[i] / 255, 1 / gamma);
 }
