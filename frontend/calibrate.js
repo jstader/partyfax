@@ -78,7 +78,7 @@ async function printOne(p) {
         method: 'POST',
         headers: { 'Content-Type': 'image/png' },
         body: encodePNG(p.bits, W, p.h),
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(90000),
       });
       body = await res.json().catch(() => ({}));
     } catch (e) {

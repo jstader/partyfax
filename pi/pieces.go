@@ -3,24 +3,28 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/sys/unix"
 )
 
 // Pictures are sent in pieces, each waited out before the next. A strip is
-// one raster command of about 63 KB, and sent whole it is one long USB
-// transfer that the printer holds back with flow control for the seconds it
-// takes to print. Partway through some of those the Pi's port gave up
-// ("disabled by hub (EMI?)") and the strip stopped. In pieces of pieceRows
-// rows, each followed by a GS r 1 query that the printer answers only once
-// it has printed everything before it, the Pi never sits in a long
-// transfer. Measured on paper: no visible joins, about 2.7 s more a strip.
+// one raster command of about 63 KB, and partway through some dark ones the
+// printer stops for a while (an overheated head cooling, it seems). Sent
+// whole, the USB link dropped during that stop ("disabled by hub (EMI?)")
+// and the strip ended there. Sent in pieces without waiting, the piece that
+// arrived during the stop came out garbled, rows shifted sideways. So after
+// each piece of pieceRows rows comes a GS r 1 query, which the printer
+// answers only once it has printed everything before it, and nothing more
+// is sent until it has: however long it stops, up to the job's deadline.
+// Measured on paper: no visible joins, about 2.7 s more a strip.
 const pieceRows = 128
 
-// How long to wait for a piece's answer. A piece prints in well under a
-// second.
-const pieceWait = 5 * time.Second
+// A piece normally prints in about three quarters of a second. Waits longer
+// than this are the printer stopping, and are logged, to see how often and
+// for how long.
+const pauseWorthLogging = 2 * time.Second
 
 var (
 	rasterCmd  = []byte{0x1d, 'v', '0'}
@@ -76,64 +80,59 @@ func split(job []byte) []segment {
 	return out
 }
 
-// After this many pieces the printer didn't answer, it is taken not to answer
-// queries at all, and the rest of the job goes out without waiting.
-const maxMisses = 3
-
 // printJob sends a job in segments, waiting after each picture piece until the
-// printer has printed it.
+// printer has printed it. A printer that never answers the query can't print
+// pictures this way; this one does.
 func (p *usblp) printJob(job []byte, deadline time.Time) error {
-	misses, piece := 0, 0
+	piece := 0
 
 	for _, s := range split(job) {
 		if err := p.write(s.data, deadline); err != nil {
 			return err
 		}
-		if !s.sync || misses >= maxMisses {
+		if !s.sync {
 			continue
 		}
 		piece++
 
-		// A late answer to the last query must not be taken for this one's.
+		// A late answer to an earlier query must not be taken for this one's.
 		p.discardInput()
+		sent := time.Now()
 		if err := p.write(paperQuery, deadline); err != nil {
 			return err
 		}
-		if p.answered(min(pieceWait, time.Until(deadline))) {
-			continue
+		if err := p.awaitAnswer(deadline); err != nil {
+			logger.Warn("printer stopped answering", "piece", piece, "waited", time.Since(sent).Round(100*time.Millisecond))
+			return err
 		}
-		if time.Now().After(deadline) {
-			return errTimeout
-		}
-		misses++
-		logger.Warn("printer didn't answer after a piece", "piece", piece, "misses", misses)
-		if misses == maxMisses {
-			logger.Warn("sending the rest of the job without waiting between pieces")
+		if waited := time.Since(sent); waited > pauseWorthLogging {
+			logger.Info("printer paused", "piece", piece, "for", waited.Round(100*time.Millisecond))
 		}
 	}
 
 	return nil
 }
 
-// answered waits up to wait for the printer to send a byte. usblp can report
-// data ready and then have none to read (EAGAIN, or zero bytes); that is not
-// an answer, so it waits on rather than giving up.
-func (p *usblp) answered(wait time.Duration) bool {
-	until := time.Now().Add(wait)
+// awaitAnswer waits until deadline for the printer to send a byte. usblp can
+// report data ready and then have none to read (EAGAIN, or zero bytes); that
+// is not an answer, so it waits on.
+func (p *usblp) awaitAnswer(deadline time.Time) error {
 	buf := make([]byte, 1)
 
 	for {
-		if p.wait(unix.POLLIN, until) != nil {
-			return false
+		if err := p.wait(unix.POLLIN, deadline); err != nil {
+			return err
 		}
 		n, err := unix.Read(p.fd, buf)
 		switch {
 		case n == 1:
-			return true
+			return nil
 		case err == nil, errors.Is(err, unix.EAGAIN), errors.Is(err, unix.EINTR):
 			time.Sleep(5 * time.Millisecond)
+		case errors.Is(err, unix.ENODEV):
+			return errNoPrinter
 		default:
-			return false
+			return fmt.Errorf("read: %w", err)
 		}
 	}
 }
