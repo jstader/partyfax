@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // Pictures are sent in pieces, each waited out before the next. A strip is
@@ -16,8 +19,7 @@ import (
 const pieceRows = 128
 
 // How long to wait for a piece's answer. A piece prints in well under a
-// second; past this the printer is taken not to answer queries at all, and
-// the rest of the job goes out the old way.
+// second.
 const pieceWait = 5 * time.Second
 
 var (
@@ -74,32 +76,64 @@ func split(job []byte) []segment {
 	return out
 }
 
+// After this many pieces the printer didn't answer, it is taken not to answer
+// queries at all, and the rest of the job goes out without waiting.
+const maxMisses = 3
+
 // printJob sends a job in segments, waiting after each picture piece until the
-// printer has printed it. If the printer never answers the query, it is
-// assumed not to support it and the rest goes out without waiting.
+// printer has printed it.
 func (p *usblp) printJob(job []byte, deadline time.Time) error {
-	syncing := true
+	misses, piece := 0, 0
 
 	for _, s := range split(job) {
 		if err := p.write(s.data, deadline); err != nil {
 			return err
 		}
-		if !s.sync || !syncing {
+		if !s.sync || misses >= maxMisses {
 			continue
 		}
+		piece++
 
+		// A late answer to the last query must not be taken for this one's.
+		p.discardInput()
 		if err := p.write(paperQuery, deadline); err != nil {
 			return err
 		}
-		wait := min(pieceWait, time.Until(deadline))
-		if _, ok := p.readByte(wait); !ok {
-			if time.Now().After(deadline) {
-				return errTimeout
-			}
-			logger.Warn("printer didn't answer between pieces; sending the rest whole")
-			syncing = false
+		if p.answered(min(pieceWait, time.Until(deadline))) {
+			continue
+		}
+		if time.Now().After(deadline) {
+			return errTimeout
+		}
+		misses++
+		logger.Warn("printer didn't answer after a piece", "piece", piece, "misses", misses)
+		if misses == maxMisses {
+			logger.Warn("sending the rest of the job without waiting between pieces")
 		}
 	}
 
 	return nil
+}
+
+// answered waits up to wait for the printer to send a byte. usblp can report
+// data ready and then have none to read (EAGAIN, or zero bytes); that is not
+// an answer, so it waits on rather than giving up.
+func (p *usblp) answered(wait time.Duration) bool {
+	until := time.Now().Add(wait)
+	buf := make([]byte, 1)
+
+	for {
+		if p.wait(unix.POLLIN, until) != nil {
+			return false
+		}
+		n, err := unix.Read(p.fd, buf)
+		switch {
+		case n == 1:
+			return true
+		case err == nil, errors.Is(err, unix.EAGAIN), errors.Is(err, unix.EINTR):
+			time.Sleep(5 * time.Millisecond)
+		default:
+			return false
+		}
+	}
 }
