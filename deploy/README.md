@@ -117,6 +117,19 @@ Printing strips isn't limited: the code keeps strangers out, and a party's
 guests often share one Wi-Fi address. Strips are kept in the `booth` volume, `/var/lib/docker/volumes/fax_booth`, and are
 in the nightly Proxmox backup like everything else.
 
+### The fortunes host
+
+The fortune cookie site is a third hostname on the same tunnel. Its page is
+served by Caddy and its slips print through the gateway, so there is no
+service to start. One one-time step in Cloudflare Zero Trust:
+
+- **Public hostname.** Networks → Tunnels → your tunnel → Public Hostname
+  → Add: `fortunes.nilanet.live` → service `HTTP`, URL `caddy:80`.
+
+Slips aren't kept on a wall. Like photos, each one printed is kept in the
+gateway's photos directory under its job id, as the record of what was
+printed.
+
 ## Browser caching
 
 Caddy tells browsers to check every page, script and stylesheet with the
@@ -155,7 +168,8 @@ which is internal: no route to the internet. Only the booth also joins
 
 Caddy allows each address 10 `POST /api/print` a minute, 100 an hour and
 200 a day (three zones; a print has to fit all of them), and answers the rest
-with `429` and a message the page shows. The page, the
+with `429` and a message the page shows. Fortune slips (`POST /api/fortune`,
+on the fortunes host only) have the same limits, counted separately. The page, the
 wall and the rest of the API are never limited. Change it in the
 `rate_limit` block of the Caddyfile; `update.sh` restarts Caddy when that
 file changes. The counts live in Caddy's memory and reset on a restart.

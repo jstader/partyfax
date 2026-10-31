@@ -34,6 +34,11 @@ func ReadStrip(r io.Reader) ([]byte, image.Config, error) {
 	return readPicture(r, "strip", ValidateStrip)
 }
 
+// ReadFortune is ReadPhoto for a fortune slip, checked with ValidateFortune.
+func ReadFortune(r io.Reader) ([]byte, image.Config, error) {
+	return readPicture(r, "fortune", ValidateFortune)
+}
+
 func readPicture(r io.Reader, what string, validate func(io.Reader) (image.Config, error)) ([]byte, image.Config, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {

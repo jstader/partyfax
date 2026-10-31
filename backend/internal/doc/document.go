@@ -19,6 +19,10 @@ const (
 	// footer, about 17 cm of paper and 66 KB of raster. Only the booth takes
 	// these; the public site stays at PhotoMaxRows.
 	StripMaxRows = 1400
+	// FortuneMaxRows caps a fortune cookie slip: a border, a fortune of a
+	// few lines, the lucky numbers, a Chinese lesson and the border again.
+	// About 560 rows, and some room for a long fortune.
+	FortuneMaxRows = 800
 )
 
 // Limits is the paper a document must fit. A struct rather than the constants

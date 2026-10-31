@@ -24,6 +24,9 @@ type Renderer interface {
 	Render(ctx context.Context, d doc.Document) ([]byte, error)
 	// RenderPhoto takes the PNG as received; the renderer decodes it.
 	RenderPhoto(ctx context.Context, png []byte) ([]byte, error)
+	// RenderStrip is a picture printed bare, without the receipt's frame:
+	// the gateway's fortune slips.
+	RenderStrip(ctx context.Context, png []byte) ([]byte, error)
 }
 
 type Dispatcher interface {
@@ -140,8 +143,7 @@ func (c *jsonClient) do(ctx context.Context, method, path, contentType string, b
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// RendererClient also renders strips, which only the booth asks for, so
-// that method is on the concrete type rather than the Renderer interface.
+// RendererClient is the Renderer. The booth uses only its RenderStrip.
 type RendererClient struct{ jsonClient }
 
 func NewRendererClient(base string, hc *http.Client) *RendererClient {
@@ -168,8 +170,9 @@ func (c *RendererClient) RenderPhoto(ctx context.Context, png []byte) ([]byte, e
 	return out.Payload, nil
 }
 
-// RenderStrip is a photobooth strip: up to doc.StripMaxRows tall, printed
-// bare, without the receipt's header and footer -- the strip draws its own.
+// RenderStrip is a picture printed bare, without the receipt's header and
+// footer, since it draws its own: a photobooth strip or a fortune slip, up
+// to doc.StripMaxRows tall.
 func (c *RendererClient) RenderStrip(ctx context.Context, png []byte) ([]byte, error) {
 	var out renderResponse
 	if err := c.do(ctx, http.MethodPost, "/internal/render/strip", "image/png", bytes.NewReader(png), &out); err != nil {

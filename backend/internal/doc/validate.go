@@ -73,6 +73,12 @@ func ValidateStrip(r io.Reader) (image.Config, error) {
 	return validatePicture(r, "strip", StripMaxRows)
 }
 
+// ValidateFortune is ValidatePhoto for a fortune cookie slip: the same
+// width, up to FortuneMaxRows tall.
+func ValidateFortune(r io.Reader) (image.Config, error) {
+	return validatePicture(r, "fortune", FortuneMaxRows)
+}
+
 func validatePicture(r io.Reader, what string, maxRows int) (image.Config, error) {
 	cfg, err := png.DecodeConfig(r)
 	if err != nil {

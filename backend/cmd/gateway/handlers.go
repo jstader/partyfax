@@ -39,6 +39,8 @@ func (a *api) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/print", a.print)
+	// Only from fortunes.nilanet.live: the main site's Caddy block refuses it.
+	mux.HandleFunc("POST /api/fortune", a.printFortune)
 	mux.HandleFunc("GET /api/state", a.state)
 	mux.HandleFunc("GET /api/health", httpx.Health)
 
@@ -88,7 +90,7 @@ func (a *api) printText(w http.ResponseWriter, r *http.Request) {
 
 	// The message is logged on purpose: it is about to be printed and read
 	// anyway, and nothing else records what a stranger sent.
-	a.send(w, r, payload, Print{Kind: "text", Text: d.Text, Spans: d.Spans}, "kind", "text",
+	a.send(w, r, payload, &Print{Kind: "text", Text: d.Text, Spans: d.Spans}, "kind", "text",
 		"chars", utf8.RuneCountInString(d.Text),
 		"text", logging.Truncate(d.Text, 512),
 	)
@@ -112,13 +114,43 @@ func (a *api) printPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.send(w, r, payload, Print{Kind: "photo", Rows: cfg.Height}, "kind", "photo", "rows", cfg.Height)
+	a.send(w, r, payload, &Print{Kind: "photo", Rows: cfg.Height}, "kind", "photo", "rows", cfg.Height)
+}
+
+// printFortune takes a fortune cookie slip from fortunes.nilanet.live: a
+// PNG the browser composed, printed bare, since the slip draws its own
+// border. Kept like a photo, as the record of what was printed, but not put
+// on the wall: the wall is the main site's.
+func (a *api) printFortune(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+
+	if ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); ct != "image/png" {
+		a.fail(w, r, http.StatusUnsupportedMediaType, "send image/png")
+		return
+	}
+
+	b, cfg, err := doc.ReadFortune(r.Body)
+	if err != nil {
+		a.fail(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	a.keep(r.Context(), b)
+
+	payload, err := a.renderer.RenderStrip(r.Context(), b)
+	if err != nil {
+		a.upstreamFailed(w, r, "renderer", err)
+		return
+	}
+
+	a.send(w, r, payload, nil, "kind", "fortune", "rows", cfg.Height)
 }
 
 // send is the half of printing that does not care what is being printed:
 // hand the bytes to the dispatcher, wait for the printer's answer, report.
-// Only a print the printer confirmed goes on the wall.
-func (a *api) send(w http.ResponseWriter, r *http.Request, payload []byte, p Print, attrs ...any) {
+// Only a print the printer confirmed goes on the wall, and only when p,
+// its entry there, isn't nil.
+func (a *api) send(w http.ResponseWriter, r *http.Request, payload []byte, p *Print, attrs ...any) {
 	// The trace id is the job id, so one grep follows a receipt from here to
 	// the firmware. Stored nowhere: it lives as long as the request.
 	id := logging.Trace(r.Context())
@@ -135,9 +167,11 @@ func (a *api) send(w http.ResponseWriter, r *http.Request, payload []byte, p Pri
 
 	a.log.InfoContext(r.Context(), "printed", append([]any{"bytes", len(payload)}, attrs...)...)
 
-	p.ID, p.Time = id, time.Now().UTC()
-	if err := a.wall.Add(p); err != nil {
-		a.log.ErrorContext(r.Context(), "cannot put print on the wall", "err", err)
+	if p != nil {
+		p.ID, p.Time = id, time.Now().UTC()
+		if err := a.wall.Add(*p); err != nil {
+			a.log.ErrorContext(r.Context(), "cannot put print on the wall", "err", err)
+		}
 	}
 
 	// 200: the printer took the bytes and answered with paper in. The id is

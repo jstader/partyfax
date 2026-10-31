@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Crack open a fortune cookie and its fortune prints on a real receipt printer.">
+<meta name="theme-color" content="#f7efe0">
+<title>Fortune Cookie</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 11 Q8 -3 15 11 Q8 7 1 11Z' fill='%23d99a3d'/%3E%3Crect x='7' y='9' width='5' height='4' fill='%23fff' stroke='%23b3261e' stroke-width='.8'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/fortunes/fortunes.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Fortune Cookie</h1>
+    <p class="sub">Crack one open. Its fortune prints at the party.</p>
+  </header>
+
+  <!-- Before cracking: the cookie. After: the slip as it will print. -->
+  <div class="stage">
+    <canvas id="cookie" class="pixel-art" aria-hidden="true"></canvas>
+    <canvas id="slip" class="slip" aria-label="Your fortune, as it will print" hidden></canvas>
+  </div>
+
+  <p id="fortune-text" class="visually-hidden" aria-live="polite"></p>
+
+  <div class="actions">
+    <button id="crack" class="primary">Crack open a cookie</button>
+    <div id="opened" class="toolbar" hidden>
+      <button id="print" class="primary">Print it</button>
+      <button id="another">Another cookie</button>
+    </div>
+    <p id="status" class="status" role="status"></p>
+  </div>
+</main>
+<script type="module" src="/fortunes/fortunes.js"></script>
+</body>
+</html>

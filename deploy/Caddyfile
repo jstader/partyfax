@@ -18,7 +18,7 @@
 	}
 }
 
-# ---- shared by both sites ------------------------------------------------
+# ---- shared by every site --------------------------------------------------
 
 (edge) {
 	encode gzip
@@ -139,6 +139,69 @@ http://photobooth.nilanet.live {
 	}
 }
 
+# ---- fortunes.nilanet.live ------------------------------------------------
+
+http://fortunes.nilanet.live {
+	import edge
+	import headers ()
+
+	# The same as the main site's, counted separately: per visitor address,
+	# at most 10 slips a minute, 100 an hour and 200 a day.
+	rate_limit {
+		zone fortunes_minute {
+			match {
+				method POST
+				path /api/fortune
+			}
+			key {client_ip}
+			events 10
+			window 1m
+		}
+		zone fortunes_hour {
+			match {
+				method POST
+				path /api/fortune
+			}
+			key {client_ip}
+			events 100
+			window 1h
+		}
+		zone fortunes_day {
+			match {
+				method POST
+				path /api/fortune
+			}
+			key {client_ip}
+			events 200
+			window 24h
+		}
+	}
+
+	# Printing a slip and nothing else of the gateway's.
+	handle /api/fortune {
+		reverse_proxy gateway:8080 {
+			import forward_client
+		}
+	}
+
+	handle /api/* {
+		respond 404
+	}
+
+	# Like the booth: the pages under /fortunes/ in the shared tree, with the
+	# shared js/ and fonts/, and nothing else of the main site.
+	handle {
+		root * /srv/web
+		rewrite / /fortunes/index.html
+
+		@outside not path /fortunes/* /js/* /fonts/*
+		respond @outside 404
+
+		import static_cache
+		file_server
+	}
+}
+
 # ---- partyfax.nilanet.live (any other host) --------------------------------
 
 # Any Host: only cloudflared reaches this listener, and it sends only the
@@ -184,6 +247,11 @@ http://photobooth.nilanet.live {
 		reverse_proxy mosquitto:9001
 	}
 
+	# Fortune slips print from their own site, under its own limits.
+	handle /api/fortune {
+		respond 404
+	}
+
 	handle /api/* {
 		reverse_proxy gateway:8080 {
 			import forward_client
@@ -195,9 +263,9 @@ http://photobooth.nilanet.live {
 		# Clean page URLs: /prints serves prints.html.
 		try_files {path} {path}.html
 
-		# The photobooth's pages belong to its own host, and the tests and
-		# package.json are for development, not visitors.
-		@notsite path /booth /booth/* /test/* /package.json
+		# The photobooth's and the fortunes' pages belong to their own hosts,
+		# and the tests and package.json are for development, not visitors.
+		@notsite path /booth /booth/* /fortunes /fortunes/* /test/* /package.json
 		respond @notsite 404
 
 		import static_cache

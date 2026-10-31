@@ -1,0 +1,164 @@
+:root {
+  --bg: #f7efe0;
+  --fg: #2b1d14;
+  --dim: #7a6552;
+  --accent: #b3261e;
+  --on-accent: #fff;
+  --button: #ead9bd;
+  --error: #b3261e;
+  --paper: #fff;
+  --shadow: rgba(60, 35, 10, 0.18);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1510;
+    --fg: #f4eadb;
+    --dim: #b39f88;
+    --accent: #e0574b;
+    --on-accent: #1c1510;
+    --button: #3a2c20;
+    --error: #ff8a80;
+    --shadow: rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* hidden means hidden, whatever display a class gives the element. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.45 system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* One screen, no scrolling: the header and buttons take what they need and
+   the stage, cookie or slip, gets the rest. */
+main {
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  height: 100svh;
+  min-height: 480px;
+  margin: 0 auto;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+}
+
+header {
+  text-align: center;
+}
+
+h1 {
+  font-size: 30px;
+  line-height: 1.15;
+  margin: 4px 0 4px;
+}
+
+.sub {
+  color: var(--dim);
+  margin: 0;
+}
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.pixel-art,
+.slip {
+  image-rendering: pixelated;
+}
+
+#cookie {
+  width: min(72%, 280px);
+  height: auto;
+}
+
+/* The slip at its own shape, as large as the stage allows. */
+.slip {
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--paper);
+  box-shadow: 0 4px 18px var(--shadow);
+  animation: unroll 0.35s ease-out;
+}
+
+@keyframes unroll {
+  from { transform: scaleY(0.2); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slip { animation: none; }
+}
+
+.actions {
+  text-align: center;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar button {
+  flex: 1;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  background: var(--button);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+#crack {
+  width: 100%;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.status {
+  min-height: 1.45em;
+  margin: 10px 0 0;
+  color: var(--dim);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

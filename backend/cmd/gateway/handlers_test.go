@@ -26,6 +26,7 @@ type fakeRenderer struct {
 	calls   int
 	got     doc.Document
 	gotPNG  []byte
+	strips  int
 }
 
 func (f *fakeRenderer) Render(_ context.Context, d doc.Document) ([]byte, error) {
@@ -37,6 +38,14 @@ func (f *fakeRenderer) Render(_ context.Context, d doc.Document) ([]byte, error)
 
 func (f *fakeRenderer) RenderPhoto(_ context.Context, png []byte) ([]byte, error) {
 	f.calls++
+	f.gotPNG = png
+
+	return f.payload, f.err
+}
+
+func (f *fakeRenderer) RenderStrip(_ context.Context, png []byte) ([]byte, error) {
+	f.calls++
+	f.strips++
 	f.gotPNG = png
 
 	return f.payload, f.err
@@ -141,6 +150,69 @@ func TestPrintPhotoHappyPath(t *testing.T) {
 	kept, err := os.ReadFile(filepath.Join(a.photos, out["id"]+".png"))
 	if err != nil || !bytes.Equal(kept, pic) {
 		t.Errorf("photo not kept under its id: %v", err)
+	}
+}
+
+// A fortune prints bare and is kept, but stays off the wall.
+func TestPrintFortune(t *testing.T) {
+	r := &fakeRenderer{payload: []byte("\x1b@\x1dv0...")}
+	d := &fakeDispatcher{}
+	a := newAPI(r, d)
+	a.photos = t.TempDir()
+	// Taller than a photo may be: a slip is longer than it is wide.
+	pic := pngOf(t, doc.PhotoWidth, doc.PhotoMaxRows+200)
+
+	rec := doAs(t, a, http.MethodPost, "/api/fortune", "image/png", bytes.NewReader(pic))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
+	}
+
+	if r.strips != 1 || !bytes.Equal(r.gotPNG, pic) {
+		t.Errorf("renderer strips = %d, want the PNG once, untouched", r.strips)
+	}
+
+	if string(d.gotPayl) != string(r.payload) {
+		t.Error("dispatcher did not receive the renderer's payload")
+	}
+
+	if page, _, _ := a.wall.Page("", 10); len(page) != 0 {
+		t.Errorf("wall has %d prints, want none", len(page))
+	}
+
+	var out map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+
+	if _, err := os.Stat(filepath.Join(a.photos, out["id"]+".png")); err != nil {
+		t.Errorf("fortune not kept under its id: %v", err)
+	}
+}
+
+func TestPrintFortuneRejects(t *testing.T) {
+	tests := map[string]struct {
+		ct   string
+		body []byte
+		want int
+	}{
+		"too tall":    {"image/png", pngOf(t, doc.PhotoWidth, doc.FortuneMaxRows+1), http.StatusBadRequest},
+		"wrong width": {"image/png", pngOf(t, doc.PhotoWidth/2, 100), http.StatusBadRequest},
+		"not a png":   {"image/png", []byte("definitely not"), http.StatusBadRequest},
+		"text":        {"application/json", []byte(`{"text":"hi"}`), http.StatusUnsupportedMediaType},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := &fakeRenderer{}
+			rec := doAs(t, newAPI(r, &fakeDispatcher{}), http.MethodPost, "/api/fortune", tt.ct, bytes.NewReader(tt.body))
+
+			if rec.Code != tt.want {
+				t.Fatalf("status = %d, want %d; body %s", rec.Code, tt.want, rec.Body)
+			}
+
+			if r.calls != 0 {
+				t.Errorf("renderer called %d times, want 0", r.calls)
+			}
+		})
 	}
 }
 

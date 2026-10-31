@@ -7,14 +7,19 @@ built around, the dead ends already tried, and how changes are made here.
 ## Layout
 
 - `backend/`: one Go module, four services in `cmd/`:
-  - `gateway`: the public site's API.
+  - `gateway`: the public site's API, and the fortunes site's one print
+    route.
   - `booth`: photobooth events, strips and admin.
   - `renderer`: turns documents into printer bytes.
   - `dispatcher`: sends jobs to the Pi over MQTT.
   - Shared code is in `internal/`.
 - `frontend/`: plain HTML/JS, no build step.
-  - The public site is at the top level; the photobooth is in `booth/`.
-  - Both use `js/photo.js` for dithering, so a preview is exactly what prints.
+  - The public site is at the top level; the photobooth is in `booth/`, the
+    fortune cookie site in `fortunes/`.
+  - Pictures are composed in the browser (`js/photo.js` dithers), so a
+    preview is exactly what prints.
+  - The fortunes' Chinese font is trimmed to the characters the slips use;
+    new characters mean rebuilding it (`fonts/README.md`).
 - `pi/`: the agent on the Raspberry Pi Zero W (ARMv6) that writes jobs to the
   USB printer (`/dev/usb/lp0`), plus its installer and systemd units.
 - `deploy/`, `provisioning/`, `docker-compose.yml`: the Docker Compose stack
@@ -38,6 +43,7 @@ The maintainer's Mac has neither Go nor Node; run the tests in Docker
 - **The printer is 1-bit and 384 dots wide.**
   - Photos are at most 384 rows (`doc.PhotoMaxRows`).
   - Photobooth strips are at most 1400 rows (`doc.StripMaxRows`).
+  - Fortune slips are at most 800 rows (`doc.FortuneMaxRows`).
   - A job is at most 128 KB, enforced by the broker and by the Pi agent.
 - **Cloudflare cuts every request off at 100 s.**
   - The timeouts in `backend/internal/timeouts` are chained to stay under it,
