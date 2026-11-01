@@ -74,7 +74,7 @@ func split(job []byte) []segment {
 		if i > 0 {
 			out = append(out, segment{data: rest[:i]})
 		}
-		data := rest[i+8 : end]
+		data := clearRealTime(rest[i+8 : end])
 		for start := 0; start < rows; start += pieceRows {
 			n := min(pieceRows, rows-start)
 			piece := append([]byte{0x1d, 'v', '0', 0, byte(perRow), byte(perRow >> 8), byte(n), byte(n >> 8)},
@@ -86,6 +86,26 @@ func split(job []byte) []segment {
 
 	if len(rest) > 0 {
 		out = append(out, segment{data: rest})
+	}
+	return out
+}
+
+// The printer acts on real-time commands -- DLE EOT (10 04), DLE ENQ
+// (10 05), DLE DC4 (10 14) -- wherever they turn up, picture data included,
+// whenever they arrive while it is still busy printing. It takes those bytes
+// out of the picture, so the picture is short, and it swallows the GS r 1
+// query as picture data and never answers. Measured on paper with a strip
+// that stalled at its third piece: that piece printed fine alone, stalled
+// every time after the first two, and never stalled with the 10 of its six
+// such pairs cleared. Clearing it turns one dot white; a strip has about
+// forty. GS ( D would switch real-time commands off, but this printer ignores
+// most GS ( commands.
+func clearRealTime(data []byte) []byte {
+	out := bytes.Clone(data)
+	for i := 0; i+1 < len(out); i++ {
+		if out[i] == 0x10 && (out[i+1] == 0x04 || out[i+1] == 0x05 || out[i+1] == 0x14) {
+			out[i] = 0
+		}
 	}
 	return out
 }
@@ -145,13 +165,13 @@ func (p *usblp) printJob(job []byte, deadline time.Time) error {
 	return nil
 }
 
-// A stalled printer is still alive -- its feed button works -- but has lost
-// some of a piece's bytes on the way in. It waits for the rest, taking the
-// GS r 1 query as picture data, so it never answers, and the next job's bytes
-// would finish the old picture as garbage. unstick sends enough blank bytes
-// to finish the piece whatever was lost, then ESC @ to start clean: at most
-// one piece of blank paper. Past the picture, the zeros are NULs, which the
-// printer ignores.
+// A stalled printer is still alive -- its feed button works -- but is short
+// some of a piece's bytes (see clearRealTime for the one cause found). It
+// waits for the rest, taking the GS r 1 query as picture data, so it never
+// answers, and the next job's bytes would finish the old picture as garbage.
+// unstick sends enough blank bytes to finish the piece whatever was lost,
+// then ESC @ to start clean: at most one piece of blank paper. Past the
+// picture, the zeros are NULs, which the printer ignores.
 func (p *usblp) unstick(piece []byte) {
 	if err := p.write(unstickBytes(piece), time.Now().Add(5*time.Second)); err != nil {
 		logger.Warn("could not reset the printer", "err", err)

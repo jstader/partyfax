@@ -120,3 +120,27 @@ func TestUnstickFinishesThePiece(t *testing.T) {
 		t.Errorf("%d blank bytes, the piece has %d of data", len(blank), len(piece)-8)
 	}
 }
+
+// Real-time command pairs in picture data are broken up, by clearing their
+// first byte, and nothing else changes.
+func TestSplitClearsRealTimeCommands(t *testing.T) {
+	img := raster(2, func(int) byte { return 0 })
+	data := img[8:]
+	copy(data[0:], []byte{0x10, 0x04, 0x04})
+	copy(data[10:], []byte{0x10, 0x05})
+	copy(data[20:], []byte{0x10, 0x14, 0x82})
+	copy(data[47:], []byte{0x10, 0x04}) // across a row boundary
+	copy(data[60:], []byte{0x10, 0x20}) // not a real-time command
+	want := bytes.Clone(data)
+	for _, i := range []int{0, 10, 20, 47} {
+		want[i] = 0
+	}
+
+	got := rejoin(t, split(img))
+	if !bytes.Equal(got, want) {
+		t.Errorf("got  %x\nwant %x", got, want)
+	}
+	if img[8] != 0x10 {
+		t.Error("the job itself was changed")
+	}
+}
