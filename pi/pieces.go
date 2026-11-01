@@ -96,7 +96,18 @@ func split(job []byte) []segment {
 func (p *usblp) printJob(job []byte, deadline time.Time) error {
 	piece := 0
 
+	// How long each piece took, in milliseconds: to hand over (the printer
+	// holds bytes back while it is busy) and then to be printed. Logged for
+	// every picture, to see whether the printer slows before it stalls.
+	var writeMs, printMs []int64
+	defer func() {
+		if piece > 0 {
+			logger.Info("piece times", "write_ms", writeMs, "print_ms", printMs)
+		}
+	}()
+
 	for _, s := range split(job) {
+		start := time.Now()
 		if err := p.write(s.data, deadline); err != nil {
 			return err
 		}
@@ -104,6 +115,7 @@ func (p *usblp) printJob(job []byte, deadline time.Time) error {
 			continue
 		}
 		piece++
+		writeMs = append(writeMs, time.Since(start).Milliseconds())
 
 		// A late answer to an earlier query must not be taken for this one's.
 		p.discardInput()
@@ -116,6 +128,7 @@ func (p *usblp) printJob(job []byte, deadline time.Time) error {
 			wait = stall
 		}
 		if err := p.awaitAnswer(wait); err != nil {
+			printMs = append(printMs, time.Since(sent).Milliseconds())
 			logger.Warn("printer stopped answering", "piece", piece, "waited", time.Since(sent).Round(100*time.Millisecond))
 			if err != errTimeout {
 				return err
@@ -123,6 +136,7 @@ func (p *usblp) printJob(job []byte, deadline time.Time) error {
 			p.unstick(s.data)
 			return errStalled
 		}
+		printMs = append(printMs, time.Since(sent).Milliseconds())
 		if waited := time.Since(sent); waited > pauseWorthLogging {
 			logger.Info("printer paused", "piece", piece, "for", waited.Round(100*time.Millisecond))
 		}
