@@ -75,6 +75,11 @@ The printer reports `58POS-USB-BT` / `POS_58` (USB id `1d81:5721`).
     the printer to answer GS r 1 after each one before sending the next.
     Keep this. Rows that come out garbled or shifted mean the printer lost
     data, not that the waiting is wrong.
+- **It can also stall without dropping off USB:** it stops partway with its
+  light on, its feed button still works, and it never answers GS r 1. It has
+  lost some of a piece's bytes and is waiting for the rest. The agent gives
+  up after 10 s of silence and sends blank bytes plus ESC @ so the next job
+  starts clean (`unstick` in `pi/pieces.go`).
 
 ## Making changes
 

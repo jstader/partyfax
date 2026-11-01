@@ -100,3 +100,23 @@ func TestSplitLeavesShortRasterAlone(t *testing.T) {
 		t.Errorf("short raster split into %d segments", len(segs))
 	}
 }
+
+// However much of a piece the printer lost, the blank bytes finish its
+// picture, and the reset comes after.
+func TestUnstickFinishesThePiece(t *testing.T) {
+	piece := split(raster(pieceRows, func(int) byte { return 0xff }))[0].data
+	pad := unstickBytes(piece)
+
+	if !bytes.HasSuffix(pad, []byte{0x1b, '@'}) {
+		t.Fatalf("ends %x, want ESC @", pad[len(pad)-2:])
+	}
+	blank := pad[:len(pad)-2]
+	if bytes.ContainsFunc(blank, func(r rune) bool { return r != 0 }) {
+		t.Error("the padding isn't blank")
+	}
+	// Worst case: the printer has the header and nothing more but the
+	// query, so it is short every data byte.
+	if len(blank) < len(piece)-8 {
+		t.Errorf("%d blank bytes, the piece has %d of data", len(blank), len(piece)-8)
+	}
+}

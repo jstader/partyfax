@@ -26,6 +26,12 @@ const pieceRows = 128
 // for how long.
 const pauseWorthLogging = 2 * time.Second
 
+// No pause over pauseWorthLogging was logged in ten days of prints, while
+// every stall sat out the whole job deadline (about 58 s). So a printer
+// silent this long has stalled, and waiting longer only keeps the guest
+// waiting.
+const stallTimeout = 10 * time.Second
+
 var (
 	rasterCmd  = []byte{0x1d, 'v', '0'}
 	paperQuery = []byte{0x1d, 'r', 1} // GS r 1: paper sensor status
@@ -101,8 +107,15 @@ func (p *usblp) printJob(job []byte, deadline time.Time) error {
 		if err := p.write(paperQuery, deadline); err != nil {
 			return err
 		}
-		if err := p.awaitAnswer(deadline); err != nil {
+		wait := deadline
+		if stall := sent.Add(stallTimeout); stall.Before(wait) {
+			wait = stall
+		}
+		if err := p.awaitAnswer(wait); err != nil {
 			logger.Warn("printer stopped answering", "piece", piece, "waited", time.Since(sent).Round(100*time.Millisecond))
+			if err != errNoPrinter {
+				p.unstick(s.data)
+			}
 			return err
 		}
 		if waited := time.Since(sent); waited > pauseWorthLogging {
@@ -111,6 +124,23 @@ func (p *usblp) printJob(job []byte, deadline time.Time) error {
 	}
 
 	return nil
+}
+
+// A stalled printer is still alive -- its feed button works -- but has lost
+// some of a piece's bytes on the way in. It waits for the rest, taking the
+// GS r 1 query as picture data, so it never answers, and the next job's bytes
+// would finish the old picture as garbage. unstick sends enough blank bytes
+// to finish the piece whatever was lost, then ESC @ to start clean: at most
+// one piece of blank paper. Past the picture, the zeros are NULs, which the
+// printer ignores.
+func (p *usblp) unstick(piece []byte) {
+	if err := p.write(unstickBytes(piece), time.Now().Add(5*time.Second)); err != nil {
+		logger.Warn("could not reset the printer", "err", err)
+	}
+}
+
+func unstickBytes(piece []byte) []byte {
+	return append(make([]byte, max(len(piece)-8, 0)), 0x1b, '@')
 }
 
 // awaitAnswer waits until deadline for the printer to send a byte. usblp can
