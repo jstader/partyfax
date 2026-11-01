@@ -79,7 +79,8 @@ The printer reports `58POS-USB-BT` / `POS_58` (USB id `1d81:5721`).
   light on, its feed button still works, and it never answers GS r 1. It has
   lost some of a piece's bytes and is waiting for the rest. The agent gives
   up after 10 s of silence and sends blank bytes plus ESC @ so the next job
-  starts clean (`unstick` in `pi/pieces.go`).
+  starts clean (`unstick` in `pi/pieces.go`), then prints the job
+  again once if 20 s of its deadline remain.
 
 ## Making changes
 

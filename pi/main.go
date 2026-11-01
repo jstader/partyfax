@@ -35,6 +35,9 @@ const (
 	// Long: the printer can stop partway through a dark strip, and the agent
 	// waits that out (pieces.go).
 	jobDeadline = 60 * time.Second
+	// retryNeeds is the time left on the job's clock worth starting a second
+	// try in: a whole strip, with room for a pause.
+	retryNeeds = 20 * time.Second
 	// Matches the broker's max_packet_size. A square photo is about 19 KB, a
 	// photobooth strip up to about 66 KB.
 	maxJob = 128 * 1024
@@ -231,7 +234,17 @@ func handle(path string, j job) []byte {
 
 	logger.Info("printing", "job", j.id, "bytes", len(j.payload))
 
-	switch err := p.printJob(j.payload, deadline); err {
+	err = p.printJob(j.payload, deadline)
+	// A stall is caught within stallTimeout and the printer reset, so there
+	// is usually time to print the whole job again, once, from the top: a
+	// strip resumed where it stopped would have a garbled band in a photo.
+	// A strip prints in about 10 s.
+	if err == errStalled && time.Until(deadline) > retryNeeds {
+		logger.Info("printing again after a stall", "job", j.id)
+		err = p.printJob(j.payload, deadline)
+	}
+
+	switch err {
 	case nil:
 		logger.Info("printed", "job", j.id)
 		return ackOK

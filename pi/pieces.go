@@ -32,6 +32,10 @@ const pauseWorthLogging = 2 * time.Second
 // waiting.
 const stallTimeout = 10 * time.Second
 
+// errStalled is a picture piece the printer never finished, after it has
+// been reset; the job can be sent again.
+var errStalled = errors.New("printer stalled partway, reset")
+
 var (
 	rasterCmd  = []byte{0x1d, 'v', '0'}
 	paperQuery = []byte{0x1d, 'r', 1} // GS r 1: paper sensor status
@@ -113,10 +117,11 @@ func (p *usblp) printJob(job []byte, deadline time.Time) error {
 		}
 		if err := p.awaitAnswer(wait); err != nil {
 			logger.Warn("printer stopped answering", "piece", piece, "waited", time.Since(sent).Round(100*time.Millisecond))
-			if err != errNoPrinter {
-				p.unstick(s.data)
+			if err != errTimeout {
+				return err
 			}
-			return err
+			p.unstick(s.data)
+			return errStalled
 		}
 		if waited := time.Since(sent); waited > pauseWorthLogging {
 			logger.Info("printer paused", "piece", piece, "for", waited.Round(100*time.Millisecond))
