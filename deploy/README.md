@@ -157,6 +157,13 @@ security fixes in Alpine, Caddy and Go's standard library arrive.
 `systemctl list-timers partyfax-rebuild` shows when it runs next, and
 `journalctl -u partyfax-rebuild` how the last one went.
 
+The rebuild doesn't change `cloudflared`, which is pinned rather than built.
+Each week `partyfax-cloudflared-update.timer` runs
+`deploy/update-cloudflared.sh`, which moves `CLOUDFLARED_VERSION` in `.env` to
+the newest release at least three days old, and goes back if the tunnel doesn't
+come up healthy. `journalctl -u partyfax-cloudflared-update` shows how it went.
+A rollback leaves the service marked failed, and it tries again the next week.
+
 ## Networks
 
 `cloudflared` is alone on `edge` with Caddy. Everything else is on `app`,

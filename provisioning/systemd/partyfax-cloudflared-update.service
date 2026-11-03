@@ -1,0 +1,11 @@
+# Move cloudflared to a newer pinned release, rolling back if the tunnel doesn't
+# come up healthy. Run by partyfax-cloudflared-update.timer.
+[Unit]
+Description=Update cloudflared for partyfax
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/root/partyfax/deploy/update-cloudflared.sh
