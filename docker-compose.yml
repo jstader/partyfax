@@ -58,10 +58,17 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./frontend:/srv/web:ro
       - caddy-data:/data
-    # Through Caddy to the gateway: the gateway's image is scratch and has
-    # nothing to run a check with, so this covers both.
+    # The gateway, booth and renderer images are scratch and have nothing to
+    # run a check with, so Caddy checks all three. Unhealthy here can mean one
+    # of them is down rather than Caddy, and nothing restarts on it. Their
+    # health routes answer without touching the printer or doing any rendering.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/api/health"]
+      test:
+        - CMD-SHELL
+        - >-
+          wget -qO- http://127.0.0.1/api/health &&
+          wget -qO- http://booth:8083/api/booth/health &&
+          wget -qO- http://renderer:8081/internal/health
       interval: 30s
       timeout: 5s
       retries: 3
