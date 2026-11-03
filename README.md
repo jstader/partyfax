@@ -85,8 +85,31 @@ will print:
 - a border of cookies and lucky coins along the top and bottom.
 
 Tap **Print it** to print that slip, or **Another cookie** for a new one.
-The slip is composed in the browser, Chinese characters included, from a
-copy of Noto Sans SC trimmed to the characters the slips use.
+The server draws the slip, Chinese characters included, from a copy of Noto
+Sans SC trimmed to the characters the slips use.
+
+Another program can print one with a single call, no page involved:
+
+```bash
+curl -X POST https://fortunes.nilanet.live/api/fortune/print
+```
+
+It answers once the printer has, saying what it printed:
+
+```json
+{
+  "id": "…",
+  "status": "printed",
+  "fortune": "Adventure awaits those who say yes.",
+  "numbers": [3, 11, 18, 27, 36, 42],
+  "lesson": {"zh": "你好", "pinyin": "nǐ hǎo", "en": "hello"}
+}
+```
+
+Allow up to 90 seconds. A `409` with `busy` in its message means someone
+else's job is on the printer, so try again in a few seconds; a `409` for
+paper, a `503` or a `504` means the printer needs a person. It counts against
+the same per-address limits as the page, and `429` means they're used up.
 
 ## One back end for all three
 
@@ -114,8 +137,8 @@ flowchart LR
 
 Each front end has its own page and an API service that knows its rules:
 what a receipt may contain, which event a code opens, how long a fortune
-slip may be. The fortunes site has no state of its own, so it has one route
-on the gateway rather than a service. Everything after that is shared: the
+slip may be. The fortunes site has no state of its own, so it has a few
+routes on the gateway rather than a service. Everything after that is shared: the
 API services hand the renderer a document or a picture, and the dispatcher
 a print job.
 
@@ -146,10 +169,12 @@ gets its answer only after the printer has acked the job.
 
 **fortunes only**
 
-- **Page** (`frontend/fortunes/`): picks a fortune, a lesson and the lucky
-  numbers, composes the slip, and posts it to `POST /api/fortune`.
-- **gateway**: checks the slip's size and prints it, without the receipt
-  frame and off the public wall.
+- **Page** (`frontend/fortunes/`): shows the slip from
+  `GET /api/fortune/slip`, and posts that picture to `POST /api/fortune` to
+  print it.
+- **gateway** (`backend/internal/fortune`): picks a fortune, a lesson and the
+  lucky numbers, and draws the slip. It prints slips without the receipt frame
+  and off the public wall. `POST /api/fortune/print` does all of it in one call.
 
 **Shared**
 
@@ -186,9 +211,10 @@ gets its answer only after the printer has acked the job.
 ```
 frontend/                partyfax: the receipt page and the /prints wall
 frontend/booth/          photobooth: booth, event wall, strip page, admin page
-frontend/fortunes/       fortunes: the page, the fortunes and the lessons
+frontend/fortunes/       fortunes: the page
 frontend/js/             partyfax's modules; some, like photo.js, serve all three
-backend/cmd/gateway/     partyfax's API service, and fortunes' print route
+backend/cmd/gateway/     partyfax's API service, and fortunes' routes
+backend/internal/fortune/ fortunes: the fortunes, the lessons and drawing a slip
 backend/cmd/booth/       photobooth's API service
 backend/cmd/renderer/    shared: document or picture to printer bytes
 backend/cmd/dispatcher/  shared: hands jobs to the printer over MQTT

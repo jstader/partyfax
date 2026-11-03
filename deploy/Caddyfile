@@ -151,7 +151,7 @@ http://fortunes.nilanet.live {
 		zone fortunes_minute {
 			match {
 				method POST
-				path /api/fortune
+				path /api/fortune /api/fortune/print
 			}
 			key {client_ip}
 			events 10
@@ -160,7 +160,7 @@ http://fortunes.nilanet.live {
 		zone fortunes_hour {
 			match {
 				method POST
-				path /api/fortune
+				path /api/fortune /api/fortune/print
 			}
 			key {client_ip}
 			events 100
@@ -169,16 +169,28 @@ http://fortunes.nilanet.live {
 		zone fortunes_day {
 			match {
 				method POST
-				path /api/fortune
+				path /api/fortune /api/fortune/print
 			}
 			key {client_ip}
 			events 200
 			window 24h
 		}
+		# Drawing a slip prints nothing, so this only stops a script from
+		# keeping the gateway busy. Far more cookies than anyone cracks by hand.
+		zone fortunes_slips {
+			match {
+				method GET
+				path /api/fortune/slip
+			}
+			key {client_ip}
+			events 30
+			window 1m
+		}
 	}
 
-	# Printing a slip and nothing else of the gateway's.
-	handle /api/fortune {
+	# Drawing and printing slips and nothing else of the gateway's.
+	@fortune path /api/fortune /api/fortune/*
+	handle @fortune {
 		reverse_proxy gateway:8080 {
 			import forward_client
 		}
@@ -248,7 +260,8 @@ http://fortunes.nilanet.live {
 	}
 
 	# Fortune slips print from their own site, under its own limits.
-	handle /api/fortune {
+	@fortune path /api/fortune /api/fortune/*
+	handle @fortune {
 		respond 404
 	}
 

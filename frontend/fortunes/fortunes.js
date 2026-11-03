@@ -1,25 +1,43 @@
-/* The fortunes page: crack a cookie, see its slip, print it. The slip is
-   composed here (js/slip.js) and sent as a picture, so what prints is what
-   was on the screen. */
+/* The fortunes page: crack a cookie, see its slip, print it. The server
+   picks the fortune and draws the slip (backend/internal/fortune), and the
+   page sends that same picture back to print, so what prints is what was on
+   the screen. */
 
-import { pick } from './js/fortunes.js';
-import { compose, symbolRects, SYMBOLS, W } from './js/slip.js';
-import { unpack, encodePNG } from '../js/photo.js';
 import { whileBusy } from '../js/busy.js';
+
+/* The closed cookie, from the same drawing as the slip's border: '#' is
+   black. */
+const COOKIE = [
+  '......######...........',
+  '....##......##.........',
+  '...#..........#........',
+  '..#.....##.....#.......',
+  '.#.....#..#.....#......',
+  '.#....#....#....#......',
+  '#....#......#....#.....',
+  '#...#........#...#.....',
+  '#..#..........#..#.....',
+  '.##....########.##.....',
+  '.......#..............#',
+  '.......#.###.####.....#',
+  '.......#..............#',
+  '.......################',
+];
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
 
-let current = null;   // { slip, png } on show
+let current = null;   // the PNG on show
 
-/* The closed cookie, from the border's own drawing, large. */
+/* The closed cookie, large. */
 function drawCookie() {
-  const c = $('cookie'), rows = SYMBOLS.cookie;
-  // symbolRects draws at 2x, so the canvas is twice the pattern.
-  c.width = rows[0].length * 2; c.height = rows.length * 2;
+  const c = $('cookie');
+  c.width = COOKIE[0].length; c.height = COOKIE.length;
   const ctx = c.getContext('2d');
   ctx.fillStyle = getComputedStyle(document.body).color;
-  for (const [x, y, w, h] of symbolRects('cookie', 0, 0)) ctx.fillRect(x, y, w, h);
+  COOKIE.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) if (row[x] === '#') ctx.fillRect(x, y, 1, 1);
+  });
 }
 
 function say(text, isError = false) {
@@ -31,17 +49,15 @@ async function crack() {
   $('crack').disabled = $('another').disabled = true;
   say('');
   try {
-    const slip = pick();
-    const { bits, h } = await compose(slip);
+    const slip = await request('/api/fortune/slip', { signal: AbortSignal.timeout(20000) });
+    const png = Uint8Array.from(atob(slip.png), (ch) => ch.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([png], { type: 'image/png' }));
 
     const c = $('slip');
-    c.width = W; c.height = h;
-    const ctx = c.getContext('2d');
-    const img = ctx.createImageData(W, h);
-    unpack(bits, W, h, img.data);
-    ctx.putImageData(img, 0, 0);
+    c.width = bitmap.width; c.height = bitmap.height;
+    c.getContext('2d').drawImage(bitmap, 0, 0);
 
-    current = { slip, png: encodePNG(bits, W, h) };
+    current = png;
     $('fortune-text').textContent = `${slip.fortune} Lucky numbers ${slip.numbers.join(', ')}. ` +
       `Learn Chinese: ${slip.lesson.zh}, ${slip.lesson.pinyin}, ${slip.lesson.en}.`;
 
@@ -64,7 +80,7 @@ async function print() {
   btn.disabled = $('another').disabled = true;
   try {
     await whileBusy(
-      () => { say('Printing...'); return send(current.png); },
+      () => { say('Printing...'); return send(current); },
       () => say('Someone else is printing. Waiting for the printer...'),
     );
     say('Printed! Grab your fortune from the printer.');
@@ -79,13 +95,18 @@ async function print() {
 /* Resolves once the slip is on paper; throws with the server's reason and
    .status otherwise. The server gives up by 75 seconds at worst, so past 90
    the connection is taken for dead. */
-async function send(png) {
-  const res = await fetch('/api/fortune', {
+function send(png) {
+  return request('/api/fortune', {
     method: 'POST',
     headers: { 'Content-Type': 'image/png' },
     body: png,
     signal: AbortSignal.timeout(90000),
   });
+}
+
+/* The reply's JSON, or throws with the server's reason and .status. */
+async function request(url, options) {
+  const res = await fetch(url, options);
   if (res.ok) return res.json();
   let msg = `error ${res.status}`;
   try { msg = (await res.json()).error || msg; } catch { /* not JSON: keep the status */ }

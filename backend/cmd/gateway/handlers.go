@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jstader/partyfax/backend/internal/doc"
+	"github.com/jstader/partyfax/backend/internal/fortune"
 	"github.com/jstader/partyfax/backend/internal/httpx"
 	"github.com/jstader/partyfax/backend/internal/logging"
 	"github.com/jstader/partyfax/backend/internal/timeouts"
@@ -39,8 +40,12 @@ func (a *api) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/print", a.print)
-	// Only from fortunes.nilanet.live: the main site's Caddy block refuses it.
+	// Only from fortunes.nilanet.live: the main site's Caddy block refuses them.
 	mux.HandleFunc("POST /api/fortune", a.printFortune)
+	mux.HandleFunc("GET /api/fortune/slip", a.newSlip)
+	// This one takes no body, so a browser would send it from any site without
+	// asking first. Other programs are welcome: they send no browser headers.
+	mux.Handle("POST /api/fortune/print", http.NewCrossOriginProtection().Handler(http.HandlerFunc(a.printNewFortune)))
 	mux.HandleFunc("GET /api/state", a.state)
 	mux.HandleFunc("GET /api/health", httpx.Health)
 
@@ -117,10 +122,10 @@ func (a *api) printPhoto(w http.ResponseWriter, r *http.Request) {
 	a.send(w, r, payload, &Print{Kind: "photo", Rows: cfg.Height}, "kind", "photo", "rows", cfg.Height)
 }
 
-// printFortune takes a fortune cookie slip from fortunes.nilanet.live: a
-// PNG the browser composed, printed bare, since the slip draws its own
-// border. Kept like a photo, as the record of what was printed, but not put
-// on the wall: the wall is the main site's.
+// printFortune takes a fortune cookie slip the page got from newSlip and is
+// sending back as a PNG, printed bare, since the slip draws its own border.
+// Kept like a photo, as the record of what was printed, but not put on the
+// wall: the wall is the main site's.
 func (a *api) printFortune(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 
@@ -146,11 +151,76 @@ func (a *api) printFortune(w http.ResponseWriter, r *http.Request) {
 	a.send(w, r, payload, nil, "kind", "fortune", "rows", cfg.Height)
 }
 
-// send is the half of printing that does not care what is being printed:
-// hand the bytes to the dispatcher, wait for the printer's answer, report.
-// Only a print the printer confirmed goes on the wall, and only when p,
-// its entry there, isn't nil.
+// newSlip picks a fortune and draws its slip, printing nothing: what the page
+// shows, and sends back to printFortune if the visitor wants it on paper.
+func (a *api) newSlip(w http.ResponseWriter, r *http.Request) {
+	s := fortune.Pick()
+
+	b, err := fortune.PNG(s)
+	if err != nil {
+		a.log.ErrorContext(r.Context(), "cannot draw slip", "err", err)
+		a.fail(w, r, http.StatusInternalServerError, "cannot draw that slip")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(w, http.StatusOK, struct {
+		fortune.Slip
+		PNG []byte `json:"png"`
+	}{s, b})
+}
+
+// printNewFortune is the whole thing in one call, for programs: pick a fortune,
+// draw it, print it. The reply says what it was, since the caller has no other
+// way to know.
+func (a *api) printNewFortune(w http.ResponseWriter, r *http.Request) {
+	s := fortune.Pick()
+
+	b, err := fortune.PNG(s)
+	if err != nil {
+		a.log.ErrorContext(r.Context(), "cannot draw slip", "err", err)
+		a.fail(w, r, http.StatusInternalServerError, "cannot draw that slip")
+		return
+	}
+
+	a.keep(r.Context(), b)
+
+	payload, err := a.renderer.RenderStrip(r.Context(), b)
+	if err != nil {
+		a.upstreamFailed(w, r, "renderer", err)
+		return
+	}
+
+	id, ok := a.deliver(w, r, payload, nil, "kind", "fortune", "fortune", s.Fortune)
+	if !ok {
+		return
+	}
+
+	httpx.WriteJSON(w, http.StatusOK, struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+		fortune.Slip
+	}{id, "printed", s})
+}
+
+// send is deliver with the usual reply.
 func (a *api) send(w http.ResponseWriter, r *http.Request, payload []byte, p *Print, attrs ...any) {
+	id, ok := a.deliver(w, r, payload, p, attrs...)
+	if !ok {
+		return
+	}
+
+	// 200: the printer took the bytes and answered with paper in. The id is
+	// the reference printed on the receipt and the trace in the logs.
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"id": id, "status": "printed"})
+}
+
+// deliver is the half of printing that does not care what is being printed:
+// hand the bytes to the dispatcher and wait for the printer's answer. It
+// returns the job's id and true for the caller to reply, or has replied with
+// the failure itself. Only a print the printer confirmed goes on the wall, and
+// only when p, its entry there, isn't nil.
+func (a *api) deliver(w http.ResponseWriter, r *http.Request, payload []byte, p *Print, attrs ...any) (string, bool) {
 	// The trace id is the job id, so one grep follows a receipt from here to
 	// the firmware. Stored nowhere: it lives as long as the request.
 	id := logging.Trace(r.Context())
@@ -162,7 +232,7 @@ func (a *api) send(w http.ResponseWriter, r *http.Request, payload []byte, p *Pr
 
 	if err := a.dispatcher.Print(ctx, id, payload); err != nil {
 		a.upstreamFailed(w, r, "dispatcher", err)
-		return
+		return "", false
 	}
 
 	a.log.InfoContext(r.Context(), "printed", append([]any{"bytes", len(payload)}, attrs...)...)
@@ -174,9 +244,7 @@ func (a *api) send(w http.ResponseWriter, r *http.Request, payload []byte, p *Pr
 		}
 	}
 
-	// 200: the printer took the bytes and answered with paper in. The id is
-	// the reference printed on the receipt and the trace in the logs.
-	httpx.WriteJSON(w, http.StatusOK, map[string]string{"id": id, "status": "printed"})
+	return id, true
 }
 
 // keep writes the picture to the photos directory under its trace id. A

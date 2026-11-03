@@ -7,8 +7,7 @@ built around, the dead ends already tried, and how changes are made here.
 ## Layout
 
 - `backend/`: one Go module, four services in `cmd/`:
-  - `gateway`: the public site's API, and the fortunes site's one print
-    route.
+  - `gateway`: the public site's API, and the fortunes site's routes.
   - `booth`: photobooth events, strips and admin.
   - `renderer`: turns documents into printer bytes.
   - `dispatcher`: sends jobs to the Pi over MQTT.
@@ -17,9 +16,11 @@ built around, the dead ends already tried, and how changes are made here.
   - The public site is at the top level; the photobooth is in `booth/`, the
     fortune cookie site in `fortunes/`.
   - Pictures are composed in the browser (`js/photo.js` dithers), so a
-    preview is exactly what prints.
-  - The fortunes' Chinese font is trimmed to the characters the slips use;
-    new characters mean rebuilding it (`fonts/README.md`).
+    preview is exactly what prints. Fortune slips are the exception: the
+    gateway draws them (`backend/internal/fortune`) so that one API call can
+    print one, and the page shows and sends back the server's picture.
+  - The slips' Chinese font is trimmed to the characters they use; new
+    characters mean rebuilding it (`backend/internal/fortune/fonts/README.md`).
 - `pi/`: the agent on the Raspberry Pi Zero W (ARMv6) that writes jobs to the
   USB printer (`/dev/usb/lp0`), plus its installer and systemd units.
 - `deploy/`, `provisioning/`, `docker-compose.yml`: the Docker Compose stack

@@ -216,6 +216,121 @@ func TestPrintFortuneRejects(t *testing.T) {
 	}
 }
 
+// The one-call route: a slip is made, printed bare, kept, stays off the wall,
+// and the reply says what it was.
+func TestPrintNewFortune(t *testing.T) {
+	r := &fakeRenderer{payload: []byte("\x1b@\x1dv0...")}
+	d := &fakeDispatcher{}
+	a := newAPI(r, d)
+	a.photos = t.TempDir()
+
+	rec := doAs(t, a, http.MethodPost, "/api/fortune/print", "", nil)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
+	}
+
+	var out struct {
+		ID      string `json:"id"`
+		Status  string `json:"status"`
+		Fortune string `json:"fortune"`
+		Numbers []int  `json:"numbers"`
+		Lesson  struct {
+			ZH string `json:"zh"`
+		} `json:"lesson"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+
+	if out.Status != "printed" || out.ID == "" || out.Fortune == "" || len(out.Numbers) != 6 || out.Lesson.ZH == "" {
+		t.Errorf("reply = %s", rec.Body)
+	}
+
+	if r.strips != 1 {
+		t.Errorf("renderer strips = %d, want 1", r.strips)
+	}
+
+	if _, err := doc.ValidateFortune(bytes.NewReader(r.gotPNG)); err != nil {
+		t.Errorf("slip fails the print path's check: %v", err)
+	}
+
+	if string(d.gotPayl) != string(r.payload) {
+		t.Error("dispatcher did not receive the renderer's payload")
+	}
+
+	if page, _, _ := a.wall.Page("", 10); len(page) != 0 {
+		t.Errorf("wall has %d prints, want none", len(page))
+	}
+
+	if _, err := os.Stat(filepath.Join(a.photos, out.ID+".png")); err != nil {
+		t.Errorf("fortune not kept under its id: %v", err)
+	}
+}
+
+// A busy printer has to reach the caller as it does the page, for it to retry.
+func TestPrintNewFortuneBusy(t *testing.T) {
+	d := &fakeDispatcher{err: &upstream.Error{Service: "dispatcher", Status: http.StatusConflict, Msg: "printer busy"}}
+
+	rec := doAs(t, newAPI(&fakeRenderer{}, d), http.MethodPost, "/api/fortune/print", "", nil)
+
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "busy") {
+		t.Errorf("status = %d, body %s; want 409 busy", rec.Code, rec.Body)
+	}
+}
+
+// A page on another site can't make its visitors' browsers print.
+func TestPrintNewFortuneRefusesOtherSites(t *testing.T) {
+	r := &fakeRenderer{}
+	h := logging.Edge(slog.New(slog.NewTextHandler(io.Discard, nil)))(newAPI(r, &fakeDispatcher{}).routes())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/fortune/print", nil)
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden || r.calls != 0 {
+		t.Errorf("status = %d, renderer calls = %d; want 403 and none", rec.Code, r.calls)
+	}
+}
+
+// What the page gets: a slip it can show and send back, and nothing printed.
+func TestNewSlip(t *testing.T) {
+	r := &fakeRenderer{}
+	d := &fakeDispatcher{}
+
+	rec := do(t, newAPI(r, d), http.MethodGet, "/api/fortune/slip", "")
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
+	}
+
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q: a cached slip would be the same fortune again", got)
+	}
+
+	var out struct {
+		Fortune string `json:"fortune"`
+		PNG     []byte `json:"png"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+
+	if out.Fortune == "" {
+		t.Errorf("no fortune in %s", rec.Body)
+	}
+
+	if _, err := doc.ValidateFortune(bytes.NewReader(out.PNG)); err != nil {
+		t.Errorf("slip fails the print path's check: %v", err)
+	}
+
+	if r.calls != 0 || d.calls != 0 {
+		t.Errorf("renderer calls = %d, dispatcher calls = %d; want none", r.calls, d.calls)
+	}
+}
+
 // Bad pictures never reach the renderer: the header is enough to refuse.
 func TestPrintPhotoRejects(t *testing.T) {
 	tests := map[string][]byte{
