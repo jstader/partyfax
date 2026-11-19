@@ -21,6 +21,9 @@ x-hardening: &hardening
   logging: *logging
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
+  # Each service idles at about 10 processes and threads; this stops a runaway
+  # one from exhausting the CT's.
+  pids_limit: 200
 
 services:
   cloudflared:

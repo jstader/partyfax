@@ -107,6 +107,7 @@ systemctl enable --now partyfax-firewall.service
 
 echo "== unattended-upgrades =="
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unattended-upgrades
+install -m 0644 "$SCRIPT_DIR/apt/51unattended-upgrades-partyfax.conf" /etc/apt/apt.conf.d/51unattended-upgrades-partyfax.conf
 
 echo "== Monthly image rebuild =="
 install -m 0644 "$SCRIPT_DIR/systemd/partyfax-rebuild.service" /etc/systemd/system/partyfax-rebuild.service
